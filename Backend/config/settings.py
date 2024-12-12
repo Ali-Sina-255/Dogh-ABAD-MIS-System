@@ -108,7 +108,7 @@ WSGI_APPLICATION = "config.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": "DOgh_abbad_ad",  # Replace with your PostgreSQL database name
+        "NAME": "Dogh_abbad_ad",  # Replace with your PostgreSQL database name
         "USER": "postgres",  # Replace with your PostgreSQL username
         "PASSWORD": "open ",  # Replace with your PostgreSQL password
         "HOST": "localhost",  # You can change this if your PostgreSQL is hosted elsewhere
