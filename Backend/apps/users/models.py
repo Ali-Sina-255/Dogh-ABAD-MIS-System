@@ -27,15 +27,21 @@ class UserManager(BaseUserManager):
         user.is_active = True
         user.is_staff = True
         user.is_superadmin = True
+        user.role = User.Reception
+
         user.save(using=self._db)
         return user
 
 
 class User(AbstractBaseUser):
     Admin = 0
+    Designer = 1
     Reception = 2
+    SuperDesigner = 3
     ROLE_CHOICES = (
+        (Designer, "Designer"),
         (Reception, "Reception"),
+        (SuperDesigner, "SuperDesigner"),
         (Admin, "Admin"),
     )
 
@@ -67,7 +73,9 @@ class User(AbstractBaseUser):
         return True
 
     def get_role(self):
-        if self.role == self.Reception:
+        if self.role == self.Designer:
+            return "Designer"
+        elif self.role == self.Reception:
             return "Reception"
         else:
             return "Admin"

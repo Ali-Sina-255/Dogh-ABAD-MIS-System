@@ -1,0 +1,13 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: "Jameel Noori Nastaleeq";
+  src: url("./assets//fonts//Jameel\ Noori\ Nastaleeq\ Kasheeda.ttf")
+    format("truetype");
+}
+
+body {
+  font-family: "Jameel Noori Nastaleeq";
+}

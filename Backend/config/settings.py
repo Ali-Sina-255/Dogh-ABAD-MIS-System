@@ -46,9 +46,6 @@ THIRD_PARTY_APPS = [
 
 LOCAL_APPS = [
     "apps.users.apps.UsersConfig",
-    "apps.api.apps.ApiConfig",
-    "apps.common.apps.CommonConfig",
-    "apps.group.apps.GroupConfig",
     "apps.core.apps.CoreConfig",
 ]
 
@@ -176,7 +173,7 @@ SIMPLE_JWT = {
         "JWT",
     ),
     "ACCESS_TOKEN_LIFETIME": timedelta(days=2),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=90),
     "SIGNING_KEY": config("SIGNING_KEY"),
     "AUTH_HEADER_NAME": "HTTP_AUTHORIZATION",
     "AUTH_TOKEN_CLASSES": ("rest_framework_simplejwt.tokens.AccessToken",),

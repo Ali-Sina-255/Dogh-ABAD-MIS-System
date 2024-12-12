@@ -3,12 +3,7 @@ from django.db import transaction
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
-from django.contrib.auth.password_validation import validate_password
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-
 from .models import User, UserProfile
-from django.contrib.auth.hashers import make_password
-
 
 
 class CreateUserSerializer(serializers.ModelSerializer):
@@ -76,6 +71,10 @@ class UserSerializer(serializers.ModelSerializer):
         ]
 
 
+from django.contrib.auth.password_validation import validate_password
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+
+from .models import User, UserProfile
 
 
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
@@ -84,6 +83,7 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         token = super().get_token(user)
         token["email"] = user.email
         token["first_name"] = user.first_name
+        token["last_name"] = user.last_name
         token["role"] = (user.role,)
         token["is_admin"] = user.is_admin
         try:
@@ -128,10 +128,11 @@ class UserProfileSerializer(serializers.ModelSerializer):
         profile_pic = validated_data.get("profile_pic", None)
         address = validated_data.get("address", None)
 
-    
+        # Handle profile picture update if it exists in the request
         if profile_pic:
-           
-            if profile_pic.size > 5 * 1024 * 1024:  # 5 MB 
+            # Optional: Add any additional validation for the profile picture here
+            # For example, check if the file size is too large
+            if profile_pic.size > 5 * 1024 * 1024:  # 5 MB limit for example
                 raise ValidationError(
                     "Profile picture is too large. Maximum size is 5MB."
                 )
@@ -149,6 +150,14 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
         instance.save()
         return instance
+
+
+from django.contrib.auth.hashers import make_password
+from django.core.exceptions import ValidationError
+from rest_framework import serializers
+
+from .models import User
+
 
 class UpdateUserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=False, allow_blank=True)

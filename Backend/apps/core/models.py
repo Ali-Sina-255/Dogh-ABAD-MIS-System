@@ -56,19 +56,31 @@ class Patient(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self) -> str:
-        return f"{self.name} - {self.patient_type[50:]}"
+        return self.name
 
 
 class Staff(models.Model):
-    name = models.CharField(max_length=255)
-    position = models.ForeignKey(StaffType, on_delete=models.SET_NULL, null=True)
+    Other = 0
+    Doctor = 1
+    Reception = 2
+    ROLE_CHOICES = (
+        (Doctor, "Doctor"),
+        (Reception, "Reception"),
+        (Other, "Other"))
+    
+    first_name = models.CharField(max_length=255)
+    last_name = models.CharField(max_length=255, default='Unknown')  # Default 'Unknown' for last_name
+    email = models.EmailField(max_length=255, unique=True, default='noemail@domain.com')  # Default email
+    role = models.PositiveSmallIntegerField(choices=ROLE_CHOICES, blank=True, null=True)
+    phone_number = models.CharField(max_length=13, blank=True, null=True)
+    position = models.ForeignKey(CategoryType, on_delete=models.SET_NULL, null=True)
     salary = models.DecimalField(max_digits=10, decimal_places=2)
-    present_day = models.IntegerField()
-    received_money = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    stared_date = models.DateTimeField(auto_now_add=True)
+ 
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self) -> str:
-        return self.name
+        return self.first_name + ' ' + self.last_name
 
 
 class DailyExpense(models.Model):
@@ -90,3 +102,9 @@ class TakenPrice(models.Model):
 
     def __str__(self):
         return f"{self.name} - ({self.description[:50]}"
+
+
+class DailyExpensePharmacy(models.Model):
+    name = models.CharField(max_length=255)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    date = models.DateTimeField(auto_now_add=True)
