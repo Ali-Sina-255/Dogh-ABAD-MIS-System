@@ -1,6 +1,7 @@
 import subprocess
 import os
 import sys
+import time
 
 # Define paths for backend and frontend directories
 backend_dir = os.path.join(os.getcwd(), 'backend')
@@ -11,20 +12,30 @@ backend_command = ["python", "manage.py", "runserver"]
 frontend_command = ["npm", "run", "dev"]
 
 def activate_virtualenv():
-    # Path for activating the virtual environment in the backend folder
+    # Path to activate virtual environment on Windows
     return os.path.join(backend_dir, 'venv', 'Scripts', 'activate.bat')
 
-def run_commands():
-    # Activate virtual environment in the backend
+def run_backend():
+    # Activate virtual environment and run the Django server
     venv_activation = activate_virtualenv()
+    command = f"call {venv_activation} && python manage.py runserver"
+    
+    # Run the backend server
+    backend_proc = subprocess.Popen(command, shell=True, cwd=backend_dir)
+    return backend_proc
 
-    # Start the backend Django server in the background
-    backend_proc = subprocess.Popen(f"call {venv_activation} && python manage.py runserver", shell=True, cwd=backend_dir)
-
-    # Start the frontend development server
+def run_frontend():
+    # Run the frontend dev server (npm)
     frontend_proc = subprocess.Popen(frontend_command, shell=True, cwd=frontend_dir)
+    return frontend_proc
 
-    # Wait for both processes to finish
+def run_commands():
+    # Start the backend and frontend servers
+    backend_proc = run_backend()
+    time.sleep(2)  # Give the backend server a moment to start (you can adjust this)
+    frontend_proc = run_frontend()
+
+    # Wait for both processes to complete
     backend_proc.wait()
     frontend_proc.wait()
 
