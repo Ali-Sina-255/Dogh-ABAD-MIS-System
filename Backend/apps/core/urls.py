@@ -1,27 +1,59 @@
-from django.urls import path , include
-from .views import CategoryTypeDetailView, CategoryTypeListCreateView, DailyExpensePharmacyViewSet, PatientListView, PatientDeleteView, PatientUpdateView, PharmaceuticalDetailView, PharmaceuticalListCreateView, StaffViewSet, StockListView
-
+from django.urls import include, path
 from rest_framework.routers import DefaultRouter
-from .views import DailyExpenseViewSet, TakenDailyExpenseViewSet, TakenDailyExpenseViewSet
+
+from .views import (
+    CategoryTypeDetailView,
+    CategoryTypeListCreateView,
+    DailyExpensePharmacyViewSet,
+    DailyExpenseViewSet,
+    PatientDeleteView,
+    PatientListView,
+    PatientUpdateView,
+    PharmaceuticalDetailView,
+    PharmaceuticalListCreateView,
+    PharmaceuticalListView,
+    StaffViewSet,
+    StockListView,
+    TakenDailyExpenseViewSet,
+)
 
 router = DefaultRouter()
-router.register('daily-expenses', DailyExpenseViewSet)
-router.register('taken-expenses', TakenDailyExpenseViewSet)
-router.register('daily-expenses-pharmacy', DailyExpensePharmacyViewSet)
-router.register('staff', StaffViewSet, basename='staff')
+router.register("daily-expenses", DailyExpenseViewSet)
+router.register("taken-expenses", TakenDailyExpenseViewSet)
+router.register("daily-expenses-pharmacy", DailyExpensePharmacyViewSet)
+router.register("staff", StaffViewSet, basename="staff")
 urlpatterns = [
-    path('', include(router.urls)),
-    path('patients/', PatientListView.as_view(), name='patient-list'),
-    path('patients/<int:pk>/', PatientDeleteView.as_view(), name='patient-delete'),
-    path('patients/<int:pk>/update/', PatientUpdateView.as_view(), name='patient-update'),
-    path('stocks/', StockListView.as_view(), name='stock-list'),
-    path('stocks/<int:pk>/', StockListView.as_view(), name='stock-detail'),  
-    
-    path('category-types/', CategoryTypeListCreateView.as_view(), name='category-type-list-create'),
-    path('category-types/<int:pk>/', CategoryTypeDetailView.as_view(), name='category-type-detail'),
-    
-    path('pharmaceuticals/', PharmaceuticalListCreateView.as_view(), name='pharmaceutical-list-create'),
-    path('pharmaceuticals/<int:pk>/', PharmaceuticalDetailView.as_view(), name='pharmaceutical-detail'),
-    
-
+    path("", include(router.urls)),
+    path("patients/", PatientListView.as_view(), name="patient-list"),
+    path("patients/<int:pk>/", PatientDeleteView.as_view(), name="patient-delete"),
+    path(
+        "patients/<int:pk>/update/", PatientUpdateView.as_view(), name="patient-update"
+    ),
+    path("stocks/", StockListView.as_view(), name="stock-list"),
+    path("stocks/<int:pk>/", StockListView.as_view(), name="stock-detail"),
+    path(
+        "category-types/",
+        CategoryTypeListCreateView.as_view(),
+        name="category-type-list-create",
+    ),
+    path(
+        "category-types/<int:pk>/",
+        CategoryTypeDetailView.as_view(),
+        name="category-type-detail",
+    ),
+    path(
+        "pharmaceuticals/",
+        PharmaceuticalListCreateView.as_view(),
+        name="pharmaceutical-list-create",
+    ),
+    path(
+        "pharmaceuticals/<int:pk>/",
+        PharmaceuticalDetailView.as_view(),
+        name="pharmaceutical-detail",
+    ),
+    path(
+        "pharmaceuticals/list/",
+        PharmaceuticalListView.as_view(),
+        name="pharmaceutical-list",
+    ),
 ]

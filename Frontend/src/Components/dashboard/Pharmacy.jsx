@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
-import Swal from "sweetalert2";
+import { showSuccessToast, showErrorToast, showWarningToast } from "../Toast";
 
 const Pharmaceutical = () => {
   const [pharmaceuticals, setPharmaceuticals] = useState([]);
@@ -13,16 +13,16 @@ const Pharmaceutical = () => {
         const response = await axios.get(
           "http://127.0.0.1:8000/core/pharmaceuticals/"
         );
-        console.log("API response:", response.data); // Debugging line
         if (Array.isArray(response.data)) {
           setPharmaceuticals(response.data);
         } else {
-          console.warn("Expected an array, but got:", response.data);
+          showWarningToast("Unexpected response format from server.");
           setPharmaceuticals([]);
         }
-      } catch (error) {
-        console.error("Error fetching pharmaceuticals:", error);
+      } catch (err) {
+        console.error("Error fetching pharmaceuticals:", err);
         setError("Failed to load pharmaceuticals.");
+        showErrorToast("Failed to load pharmaceuticals.");
       } finally {
         setLoading(false);
       }
@@ -32,6 +32,11 @@ const Pharmaceutical = () => {
   }, []);
 
   const handlePrint = (item) => {
+    if (!item) {
+      showWarningToast("No data available to print.");
+      return;
+    }
+
     const printWindow = window.open("", "_blank", "width=800,height=600");
     printWindow.document.write(`
       <html>
@@ -114,81 +119,81 @@ const Pharmaceutical = () => {
     `);
     printWindow.document.close();
     printWindow.print();
+    showSuccessToast("Bill printed successfully.");
   };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="text-xl font-semibold">Loading pharmaceuticals...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="text-red-500 font-semibold">{error}</div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 bg-white shadow rounded-lg">
       <h2 className="text-2xl font-bold mb-4">Pharmaceutical List</h2>
-      {loading ? (
-        <div className="flex justify-center items-center h-screen">
-          <div className="text-xl font-semibold">
-            Loading pharmaceuticals...
-          </div>
-        </div>
-      ) : error ? (
-        <div className="flex justify-center items-center h-screen">
-          <div className="text-red-500 font-semibold">{error}</div>
-        </div>
-      ) : (
-        <div>
-          {pharmaceuticals.length > 0 ? (
-            <table className="min-w-full border border-gray-200 bg-gray-50 rounded-lg overflow-hidden">
-              <thead>
-                <tr className="bg-blue-600 text-white">
-                  <th className="px-6 py-3 text-left text-sm font-semibold border-b border-gray-200">
-                    Doctor
-                  </th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold border-b border-gray-200">
-                    Patient
-                  </th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold border-b border-gray-200">
-                    Copy
-                  </th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold border-b border-gray-200">
-                    Price
-                  </th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold border-b border-gray-200">
-                    Bill
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {pharmaceuticals.map((item) => (
-                  <tr
-                    key={item.id}
-                    className="hover:bg-gray-100 transition duration-200"
+      {pharmaceuticals.length > 0 ? (
+        <table className="min-w-full border border-gray-200 bg-gray-50 rounded-lg overflow-hidden">
+          <thead>
+            <tr className="bg-blue-600 text-white">
+              <th className="px-6 py-3 text-left text-sm font-semibold border-b border-gray-200">
+                Doctor
+              </th>
+              <th className="px-6 py-3 text-left text-sm font-semibold border-b border-gray-200">
+                Patient
+              </th>
+              <th className="px-6 py-3 text-left text-sm font-semibold border-b border-gray-200">
+                Copy
+              </th>
+              <th className="px-6 py-3 text-left text-sm font-semibold border-b border-gray-200">
+                Price
+              </th>
+              <th className="px-6 py-3 text-left text-sm font-semibold border-b border-gray-200">
+                Bill
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {pharmaceuticals.map((item) => (
+              <tr
+                key={item.id}
+                className="hover:bg-gray-100 transition duration-200"
+              >
+                <td className="px-6 py-4 border-b border-gray-200 text-sm">
+                  {item.doctor_name || "N/A"}
+                </td>
+                <td className="px-6 py-4 border-b border-gray-200 text-sm">
+                  {item.patient_name || "N/A"}
+                </td>
+                <td className="px-6 py-4 border-b border-gray-200 text-sm">
+                  {item.copy}
+                </td>
+                <td className="px-6 py-4 border-b border-gray-200 text-sm">
+                  ${item.price ? parseFloat(item.price).toFixed(2) : "0.00"}
+                </td>
+                <td className="px-6 py-4 border-b border-gray-200 text-sm">
+                  <button
+                    onClick={() => handlePrint(item)}
+                    className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
                   >
-                    <td className="px-6 py-4 border-b border-gray-200 text-sm">
-                      {item.doctor_name ? item.doctor_name : "N/A"}
-                    </td>
-                    <td className="px-6 py-4 border-b border-gray-200 text-sm">
-                      {item.patient_name ? item.patient_name : "N/A"}
-                    </td>
-                    <td className="px-6 py-4 border-b border-gray-200 text-sm">
-                      {item.copy}
-                    </td>
-                    <td className="px-6 py-4 border-b border-gray-200 text-sm">
-                      $
-                      {item.price !== null && item.price !== undefined
-                        ? parseFloat(item.price).toFixed(2)
-                        : "0.00"}
-                    </td>
-                    <td className="px-6 py-4 border-b border-gray-200 text-sm">
-                      <button
-                        onClick={() => handlePrint(item)}
-                        className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
-                      >
-                        Print Bill
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <p className="text-gray-700 mt-4">No pharmaceuticals available</p>
-          )}
-        </div>
+                    Print Bill
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <p className="text-gray-700 mt-4">No pharmaceuticals available</p>
       )}
     </div>
   );

@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import axios from "axios";
-import Swal from "sweetalert2";
+import { showSuccessToast, showErrorToast, showWarningToast } from "../Toast";
 
 const AddPharmaceutical = () => {
   const [newStock, setNewStock] = useState({
@@ -8,12 +8,13 @@ const AddPharmaceutical = () => {
     price: "",
     percentage: "",
     amount: "",
-    daily_used: "",
   });
 
-  const [showForm, setShowForm] = useState(false); // State to control form visibility
+  const [showForm, setShowForm] = useState(false);
 
-  // Handle input changes in the form
+  // -------------------------
+  // Handle input change
+  // -------------------------
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setNewStock((prev) => ({
@@ -22,43 +23,41 @@ const AddPharmaceutical = () => {
     }));
   };
 
-  // Handle adding the new stock
+  // -------------------------
+  // Add Stock
+  // -------------------------
   const handleAddStock = async () => {
+    // Validate all fields
     if (Object.values(newStock).some((field) => field === "")) {
-      Swal.fire("Warning", "Please fill in all fields.", "warning");
+      showWarningToast("Please fill in all fields.");
       return;
     }
 
-    const { total_price, ...stockData } = newStock; // Remove total_price if exists
+    const { total_price, ...stockData } = newStock; // Exclude total_price if present
 
     try {
-      const response = await axios.post(
-        "http://127.0.0.1:8000/core/stocks/",
-        stockData
-      );
-      Swal.fire("Success", "Stock added successfully.", "success");
+      await axios.post("http://127.0.0.1:8000/core/stocks/", stockData);
+      showSuccessToast("Stock added successfully.");
+
       setNewStock({
         name: "",
         price: "",
         percentage: "",
         amount: "",
         daily_used: "",
-      }); // Reset the form
-      setShowForm(false); // Close the form after successful submission
+      }); // Reset form
+
+      setShowForm(false); // Close form
     } catch (error) {
       if (error.response) {
         console.error("Error response:", error.response.data);
-        Swal.fire(
-          "Error",
-          "Failed to add stock: " + error.response.data,
-          "error"
+        showErrorToast(
+          "Failed to add stock: " + JSON.stringify(error.response.data)
         );
       } else {
         console.error("Error message:", error.message);
-        Swal.fire(
-          "Error",
-          "Failed to add stock. Please check the console for details.",
-          "error"
+        showErrorToast(
+          "Failed to add stock. Please check the console for details."
         );
       }
     }
@@ -68,7 +67,7 @@ const AddPharmaceutical = () => {
     <div className="container mx-auto p-6 bg-white shadow rounded-lg">
       <h2 className="text-2xl font-bold mb-4">Add New Stock</h2>
 
-      {/* Toggle button to show form */}
+      {/* Toggle button */}
       {!showForm && (
         <button
           onClick={() => setShowForm(true)}
@@ -78,11 +77,11 @@ const AddPharmaceutical = () => {
         </button>
       )}
 
-      {/* Form for adding stock, visible only when showForm is true */}
+      {/* Stock form */}
       {showForm && (
         <div className="overflow-x-auto">
           <table className="min-w-full table-auto">
-            <thead className="bg-gradient-to-r from-blue-500 to-teal-400 text-white px-6 py-2 rounded-md hover:bg-gradient-to-l focus:outline-none">
+            <thead className="bg-gradient-to-r from-blue-500 to-teal-400 text-white px-6 py-2 rounded-md">
               <tr>
                 <th className="px-4 py-2 border-b text-right">Field</th>
                 <th className="px-4 py-2 border-b text-right">Input</th>
@@ -114,18 +113,16 @@ const AddPharmaceutical = () => {
               ))}
             </tbody>
           </table>
-        </div>
-      )}
 
-      {/* Submit button to add stock */}
-      {showForm && (
-        <div className="mt-4 text-right">
-          <button
-            onClick={handleAddStock}
-            className="bg-gradient-to-r from-green-400 to-green-600 text-white px-6 py-2 rounded-md hover:bg-gradient-to-l transition duration-150"
-          >
-            Add Stock
-          </button>
+          {/* Submit button */}
+          <div className="mt-4 text-right">
+            <button
+              onClick={handleAddStock}
+              className="bg-gradient-to-r from-green-400 to-green-600 text-white px-6 py-2 rounded-md hover:bg-gradient-to-l transition duration-150"
+            >
+              Add Stock
+            </button>
+          </div>
         </div>
       )}
     </div>

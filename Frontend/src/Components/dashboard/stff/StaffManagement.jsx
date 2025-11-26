@@ -1,51 +1,66 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import Swal from "sweetalert2";
+import { showSuccessToast, showErrorToast } from "../../Toast";
 
 const StaffManagement = () => {
   const [staffData, setStaffData] = useState([]);
-  const [positionData, setPositionData] = useState([]); // New state for positions
+  const [positionData, setPositionData] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [newStaff, setNewStaff] = useState({
     first_name: "",
     last_name: "",
     email: "",
     role: 1, // Default to Doctor
     phone_number: "",
-    position: "", // Position is initially empty, not hardcoded
+    position: "",
     salary: "",
   });
-  const [editing, setEditing] = useState(false); // To track if we are editing a staff member
-  const [editingStaffId, setEditingStaffId] = useState(null); // Track the staff ID we are editing
-  const [showForm, setShowForm] = useState(false); // State to control form visibility
+  const [editing, setEditing] = useState(false);
+  const [editingStaffId, setEditingStaffId] = useState(null);
+  const [showForm, setShowForm] = useState(false);
 
-  // Fetch staff data and position names
+  // Load JWT token from localStorage
+  const token = localStorage.getItem("auth_token");
+
+  // Axios config with JWT Authorization
+  const axiosConfig = {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+  };
+
+  // Fetch staff and positions
   useEffect(() => {
-    const fetchStaffData = async () => {
-      try {
-        const staffResponse = await axios.get(
-          "http://127.0.0.1:8000/core/staff/"
-        );
-        setStaffData(staffResponse.data);
-
-        // Fetch available positions
-        const positionResponse = await axios.get(
-          "http://127.0.0.1:8000/core/category-types/"
-        ); // Your API endpoint for positions
-        console.log(positionResponse);
-        setPositionData(positionResponse.data); // Set positions in state
-      } catch (error) {
-        setError("Failed to fetch data");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchStaffData();
+    fetchData();
   }, []);
 
-  // Handle input changes for adding/editing a staff member
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const staffResponse = await axios.get(
+        "http://127.0.0.1:8000/core/staff/",
+        axiosConfig
+      );
+      setStaffData(staffResponse.data);
+
+      const positionResponse = await axios.get(
+        "http://127.0.0.1:8000/core/category-types/",
+        axiosConfig
+      );
+      setPositionData(positionResponse.data);
+    } catch (err) {
+      if (err.response?.status === 401) {
+        showErrorToast("Unauthorized. Please login again.");
+      } else {
+        showErrorToast("Failed to fetch staff or positions.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle input change for form
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setNewStaff((prev) => ({
@@ -54,284 +69,218 @@ const StaffManagement = () => {
     }));
   };
 
-  // Handle form submission for adding or updating staff
+  // Add or update staff
   const handleAddOrUpdateStaff = async (e) => {
     e.preventDefault();
+
+    // Prepare payload with correct types
+    const payload = {
+      ...newStaff,
+      role: parseInt(newStaff.role, 10),
+      position: parseInt(newStaff.position, 10),
+      salary: parseFloat(newStaff.salary),
+    };
+
     try {
       let response;
       if (editing) {
-        // Update the staff member via PUT request
         response = await axios.put(
-          `http://127.0.0.1:8000/core/staff/${editingStaffId}/`, // Use the editing staff ID
-          newStaff
+          `http://127.0.0.1:8000/core/staff/${editingStaffId}/`,
+          payload,
+          axiosConfig
         );
-        Swal.fire("Updated", "Staff member updated successfully!", "success");
+        showSuccessToast("Staff updated successfully!");
       } else {
-        // Add new staff member via POST request
         response = await axios.post(
           "http://127.0.0.1:8000/core/staff/",
-          newStaff
+          payload,
+          axiosConfig
         );
-        Swal.fire("Added", "New staff added successfully!", "success");
+        showSuccessToast("New staff added successfully!");
       }
 
-      // Update the staff data in the state
-      setStaffData((prev) => {
-        if (editing) {
-          return prev.map((staff) =>
-            staff.id === editingStaffId ? response.data : staff
-          );
-        } else {
-          return [...prev, response.data];
-        }
-      });
+      setStaffData((prev) =>
+        editing
+          ? prev.map((s) => (s.id === editingStaffId ? response.data : s))
+          : [...prev, response.data]
+      );
 
-      // Reset the form
-      setNewStaff({
-        first_name: "",
-        last_name: "",
-        email: "",
-        role: 1,
-        phone_number: "",
-        position: "",
-        salary: "",
-      });
-      setEditing(false); // Reset the editing state
-      setEditingStaffId(null); // Reset the editing staff ID
-      setShowForm(false); // Hide the form after submission
-    } catch (error) {
-      Swal.fire("Error", "Failed to add/update staff", "error");
+      resetForm();
+    } catch (err) {
+      const message =
+        err.response?.data?.detail ||
+        err.response?.data?.position?.[0] ||
+        "Failed to add/update staff.";
+      showErrorToast(message);
     }
   };
 
-  // Handle the Edit button click
+  // Fill form for editing
   const handleEdit = (staffId) => {
-    // Find the staff to be edited
-    const staffToEdit = staffData.find((staff) => staff.id === staffId);
-
-    // Pre-fill the form with the staff data
+    const staff = staffData.find((s) => s.id === staffId);
     setNewStaff({
-      first_name: staffToEdit.first_name,
-      last_name: staffToEdit.last_name,
-      email: staffToEdit.email,
-      role: staffToEdit.role,
-      phone_number: staffToEdit.phone_number,
-      position: staffToEdit.position.id, // Assuming position is an object, get the ID
-      salary: staffToEdit.salary,
+      first_name: staff.first_name,
+      last_name: staff.last_name,
+      email: staff.email,
+      role: staff.role,
+      phone_number: staff.phone_number || "",
+      position: staff.position || "",
+      salary: staff.salary || "",
     });
-    setEditing(true); // Set the editing flag to true
-    setEditingStaffId(staffId); // Store the staff ID for PUT request
-    setShowForm(true); // Show the form for editing
+    setEditing(true);
+    setEditingStaffId(staffId);
+    setShowForm(true);
   };
 
-  // Handle the Delete button click
-  const handleDelete = async (staffId) => {
-    Swal.fire({
-      title: "Are you sure?",
-      text: "You won't be able to revert this!",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonColor: "#d33",
-      cancelButtonColor: "#3085d6",
-      confirmButtonText: "Yes, delete it!",
-    }).then(async (result) => {
-      if (result.isConfirmed) {
-        try {
-          await axios.delete(`http://127.0.0.1:8000/core/staff/${staffId}/`);
-          setStaffData((prev) => prev.filter((staff) => staff.id !== staffId));
-          Swal.fire(
-            "Deleted!",
-            "The staff member has been deleted.",
-            "success"
-          );
-        } catch (error) {
-          Swal.fire("Error", "Failed to delete staff member", "error");
-        }
-      }
+  // Reset form
+  const resetForm = () => {
+    setNewStaff({
+      first_name: "",
+      last_name: "",
+      email: "",
+      role: 1,
+      phone_number: "",
+      position: "",
+      salary: "",
     });
+    setEditing(false);
+    setEditingStaffId(null);
+    setShowForm(false);
   };
 
-  if (loading) {
-    return <div>Loading staff data...</div>;
-  }
-
-  if (error) {
-    return <div>{error}</div>;
-  }
+  if (loading) return <div>Loading staff...</div>;
 
   return (
-    <div className="container mx-auto p-6">
-      <h1 className="text-3xl font-bold text-center text-black mb-6">
-        Staff Management
-      </h1>
+    <div className="container mx-auto p-4">
+      <h1 className="text-2xl font-bold mb-4">Staff Management</h1>
 
-      {/* Button to toggle the form visibility */}
       {!showForm && (
         <button
           onClick={() => setShowForm(true)}
-          className="bg-gradient-to-r from-yellow-500 to-orange-400 text-white px-6 py-2 rounded-md hover:bg-gradient-to-l w-full mb-6"
+          className="bg-blue-600 text-white px-4 py-2 rounded mb-4"
         >
-          Add New Staff
+          {editing ? "Edit Staff" : "Add New Staff"}
         </button>
       )}
 
-      {/* Add/Edit Staff Form */}
       {showForm && (
-        <div className="mb-6">
-          <h2 className="text-2xl font-semibold text-gray-800">
-            {editing ? "Edit Staff" : "Add New Staff"}
-          </h2>
-          <form onSubmit={handleAddOrUpdateStaff} className="space-y-4">
-            <div className="space-y-2">
-              <label className="block text-gray-700">First Name</label>
-              <input
-                type="text"
-                name="first_name"
-                value={newStaff.first_name}
-                onChange={handleInputChange}
-                className="w-full p-3 border border-gray-300 rounded-md"
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="block text-gray-700">Last Name</label>
-              <input
-                type="text"
-                name="last_name"
-                value={newStaff.last_name}
-                onChange={handleInputChange}
-                className="w-full p-3 border border-gray-300 rounded-md"
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="block text-gray-700">Email</label>
-              <input
-                type="email"
-                name="email"
-                value={newStaff.email}
-                onChange={handleInputChange}
-                className="w-full p-3 border border-gray-300 rounded-md"
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="block text-gray-700">Phone Number</label>
-              <input
-                type="text"
-                name="phone_number"
-                value={newStaff.phone_number}
-                onChange={handleInputChange}
-                className="w-full p-3 border border-gray-300 rounded-md"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="block text-gray-700">Role</label>
-              <select
-                name="role"
-                value={newStaff.role}
-                onChange={handleInputChange}
-                className="w-full p-3 border border-gray-300 rounded-md"
-              >
-                <option value={1}>Doctor</option>
-                <option value={2}>Reception</option>
-                <option value={0}>Other</option>
-              </select>
-            </div>
-            <div className="space-y-2">
-              <label className="block text-gray-700">Position</label>
-              <select
-                name="position"
-                value={newStaff.position}
-                onChange={handleInputChange}
-                className="w-full p-3 border border-gray-300 rounded-md"
-                required
-              >
-                {positionData.map((position) => (
-                  <option key={position.id} value={position.id}>
-                    {position.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-2">
-              <label className="block text-gray-700">Salary</label>
-              <input
-                type="number"
-                name="salary"
-                value={newStaff.salary}
-                onChange={handleInputChange}
-                className="w-full p-3 border border-gray-300 rounded-md"
-                required
-              />
-            </div>
+        <form
+          onSubmit={handleAddOrUpdateStaff}
+          className="mb-6 grid gap-3 md:grid-cols-2"
+        >
+          <input
+            type="text"
+            name="first_name"
+            placeholder="First Name"
+            value={newStaff.first_name}
+            onChange={handleInputChange}
+            className="border p-2 rounded w-full"
+            required
+          />
+          <input
+            type="text"
+            name="last_name"
+            placeholder="Last Name"
+            value={newStaff.last_name}
+            onChange={handleInputChange}
+            className="border p-2 rounded w-full"
+            required
+          />
+          <input
+            type="email"
+            name="email"
+            placeholder="Email"
+            value={newStaff.email}
+            onChange={handleInputChange}
+            className="border p-2 rounded w-full"
+            required
+          />
+          <input
+            type="text"
+            name="phone_number"
+            placeholder="Phone Number"
+            value={newStaff.phone_number}
+            onChange={handleInputChange}
+            className="border p-2 rounded w-full"
+          />
+          <select
+            name="role"
+            value={newStaff.role}
+            onChange={handleInputChange}
+            className="border p-2 rounded w-full"
+          >
+            <option value={1}>Doctor</option>
+            <option value={2}>Reception</option>
+            <option value={0}>Other</option>
+          </select>
+          <select
+            name="position"
+            value={newStaff.position}
+            onChange={handleInputChange}
+            className="border p-2 rounded w-full"
+            required
+          >
+            <option value="">Select Position</option>
+            {positionData.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+          <input
+            type="number"
+            name="salary"
+            placeholder="Salary"
+            value={newStaff.salary}
+            onChange={handleInputChange}
+            className="border p-2 rounded w-full"
+            required
+          />
+          <div className="md:col-span-2 flex gap-2">
             <button
               type="submit"
-              className="bg-gradient-to-r from-yellow-500 to-orange-400 text-white px-6 py-2 rounded-md hover:bg-gradient-to-l w-full"
+              className="bg-green-600 text-white px-4 py-2 rounded flex-1"
             >
               {editing ? "Update Staff" : "Add Staff"}
             </button>
-          </form>
-        </div>
+            <button
+              type="button"
+              onClick={resetForm}
+              className="bg-gray-400 text-white px-4 py-2 rounded flex-1"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
       )}
 
       {/* Staff Table */}
-      <div className="overflow-x-auto bg-white rounded-lg shadow-lg">
-        <table className="table-auto w-full border-collapse">
-          <thead className="bg-gray-100">
-            <tr>
-              <th className="px-4 py-2 border-b text-left">Name</th>
-              <th className="px-4 py-2 border-b text-left">Email</th>
-              <th className="px-4 py-2 border-b text-left">Role</th>
-              <th className="px-4 py-2 border-b text-left">Phone Number</th>
-              <th className="px-4 py-2 border-b text-left">Position</th>
-              <th className="px-4 py-2 border-b text-left">Salary</th>
-              <th className="px-4 py-2 border-b text-left">Start Date</th>
-              <th className="px-4 py-2 border-b text-left">Actions</th>
+      <table className="w-full border-collapse border">
+        <thead>
+          <tr>
+            <th className="border p-2">Name</th>
+            <th className="border p-2">Email</th>
+            <th className="border p-2">Role</th>
+            <th className="border p-2">Phone</th>
+            <th className="border p-2">Position</th>
+            <th className="border p-2">Salary</th>
+          </tr>
+        </thead>
+        <tbody>
+          {staffData.map((s) => (
+            <tr key={s.id} className="hover:bg-gray-100">
+              <td className="border p-2">{s.first_name + " " + s.last_name}</td>
+              <td className="border p-2">{s.email}</td>
+              <td className="border p-2">
+                {s.role === 1 ? "Doctor" : s.role === 2 ? "Reception" : "Other"}
+              </td>
+              <td className="border p-2">{s.phone_number}</td>
+              <td className="border p-2">{s.position_name}</td>
+              <td className="border p-2">{s.salary}</td>
             </tr>
-          </thead>
-          <tbody>
-            {staffData.map((staff) => (
-              <tr key={staff.id} className="hover:bg-gray-50">
-                <td className="px-4 py-2 border-b">
-                  {staff.first_name} {staff.last_name}
-                </td>
-                <td className="px-4 py-2 border-b">{staff.email}</td>
-                <td className="px-4 py-2 border-b">
-                  {staff.role === 1
-                    ? "Doctor"
-                    : staff.role === 2
-                    ? "Reception"
-                    : "Other"}
-                </td>
-                <td className="px-4 py-2 border-b">{staff.phone_number}</td>
-                <td className="px-4 py-2 border-b">
-                  {/* Directly use the position_name */}
-                  {staff.position_name}
-                </td>
-                <td className="px-4 py-2 border-b">${staff.salary}</td>
-                <td className="px-4 py-2 border-b">
-                  {new Date(staff.stared_date).toLocaleDateString()}
-                </td>
-                <td className="px-4 py-2 border-b space-x-2">
-                  <button
-                    onClick={() => handleEdit(staff.id)}
-                    className="bg-gradient-to-r from-yellow-400 to-yellow-600 text-white px-4 py-1 rounded-md hover:bg-gradient-to-l"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => handleDelete(staff.id)}
-                    className="bg-gradient-to-r from-red-500 to-red-700 text-white px-4 py-1 rounded-md hover:bg-gradient-to-l"
-                  >
-                    Delete
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 };

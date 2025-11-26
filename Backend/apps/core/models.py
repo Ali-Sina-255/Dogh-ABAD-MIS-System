@@ -1,6 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.db import models
 
+
 class CategoryType(models.Model):
     User = get_user_model()
     name = models.CharField(max_length=300)
@@ -25,7 +26,7 @@ class Stock(models.Model):
     percentage = models.DecimalField(max_digits=12, decimal_places=2)
     total_price = models.DecimalField(max_digits=12, decimal_places=2)
     amount = models.IntegerField(default=0.00)
-    daily_used = models.IntegerField(default=0.00)
+    daily_used = models.IntegerField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -35,17 +36,35 @@ class Stock(models.Model):
 
 class Pharmaceutical(models.Model):
     User = get_user_model()
+
     doctor_name = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True, blank=True
     )
     patient_name = models.ForeignKey("Patient", on_delete=models.CASCADE)
+
+    # NEW: Link drug (stock item)
+    drugs = models.ManyToManyField("Stock", through="PharmaceuticalDrug")
+
+    # NEW: how many used for this prescription
+    amount_used = models.IntegerField(default=1)
+
     copy = models.CharField(max_length=255)
     price = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    def __str__(self) -> str:
+    def __str__(self):
         return self.patient_name.name
+
+
+class PharmaceuticalDrug(models.Model):
+    pharmaceutical = models.ForeignKey(Pharmaceutical, on_delete=models.CASCADE)
+    drug = models.ForeignKey("Stock", on_delete=models.CASCADE)
+    amount_used = models.IntegerField(default=1)
+
+    def __str__(self):
+        return f"{self.drug.name} x {self.amount_used}"
 
 
 class Patient(models.Model):
@@ -66,21 +85,21 @@ class Staff(models.Model):
     ROLE_CHOICES = (
         (Doctor, "Doctor"),
         (Reception, "Reception"),
-        (Other, "Other"))
-    
+        (Other, "Other"),
+    )
+
     first_name = models.CharField(max_length=255)
-    last_name = models.CharField(max_length=255, default='Unknown')  # Default 'Unknown' for last_name
-    email = models.EmailField(max_length=255, unique=True, default='noemail@domain.com')  # Default email
+    last_name = models.CharField(max_length=255, default="Unknown")
+    email = models.EmailField(max_length=255, unique=True, default="noemail@domain.com")
     role = models.PositiveSmallIntegerField(choices=ROLE_CHOICES, blank=True, null=True)
     phone_number = models.CharField(max_length=13, blank=True, null=True)
     position = models.ForeignKey(CategoryType, on_delete=models.SET_NULL, null=True)
     salary = models.DecimalField(max_digits=10, decimal_places=2)
     stared_date = models.DateTimeField(auto_now_add=True)
- 
     created_at = models.DateTimeField(auto_now_add=True)
 
-    def __str__(self) -> str:
-        return self.first_name + ' ' + self.last_name
+    def __str__(self):
+        return f"{self.first_name} {self.last_name}"
 
 
 class DailyExpense(models.Model):

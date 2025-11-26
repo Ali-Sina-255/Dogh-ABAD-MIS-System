@@ -6,52 +6,81 @@ const Stocks = () => {
   const [stocks, setStocks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [editingStock, setEditingStock] = useState(null); // Track the stock being edited
+  const [editingStock, setEditingStock] = useState(null);
   const [updatedStock, setUpdatedStock] = useState({
     name: "",
     price: "",
     percentage: "",
     amount: "",
-    daily_used: "",
   });
+  const [userRole, setUserRole] = useState(null);
 
-  // Fetch stock data from the API
+  // Get token from localStorage
+  const token = localStorage.getItem("auth_token");
+
+  const axiosConfig = {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+  };
+
+  // Decode JWT to get role
+  useEffect(() => {
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split(".")[1]));
+        console.log("JWT payload:", payload);
+        const role = (payload.role || payload.user_role || "")
+          .toString()
+          .trim()
+          .toLowerCase();
+        setUserRole(role);
+      } catch (err) {
+        console.error("Failed to decode token:", err);
+      }
+    }
+  }, [token]);
+
+  // Fetch stocks
   useEffect(() => {
     const fetchStocks = async () => {
       try {
-        const response = await axios.get("http://127.0.0.1:8000/core/stocks/");
+        const response = await axios.get(
+          "http://127.0.0.1:8000/core/stocks/",
+          axiosConfig
+        );
         setStocks(response.data);
-      } catch (error) {
-        console.error("Error fetching stocks:", error);
+      } catch (err) {
+        console.error("Error fetching stocks:", err);
         setError("Failed to load stocks.");
       } finally {
         setLoading(false);
       }
     };
 
-    fetchStocks();
-  }, []);
+    if (token) fetchStocks();
+  }, [token]);
 
-  // Handle input change for the update form
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setUpdatedStock((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    setUpdatedStock((prev) => ({ ...prev, [name]: value }));
   };
 
-  // Handle stock update
   const handleUpdateStock = async () => {
+    if (userRole !== "Admin") {
+      Swal.fire("Forbidden", "You cannot update stocks.", "error");
+      return;
+    }
     if (Object.values(updatedStock).some((field) => field === "")) {
       Swal.fire("Warning", "Please fill in all fields.", "warning");
       return;
     }
-
     try {
       const response = await axios.put(
         `http://127.0.0.1:8000/core/stocks/${editingStock.id}/`,
-        updatedStock
+        updatedStock,
+        axiosConfig
       );
       setStocks((prev) =>
         prev.map((stock) =>
@@ -59,22 +88,20 @@ const Stocks = () => {
         )
       );
       setEditingStock(null);
-      setUpdatedStock({
-        name: "",
-        price: "",
-        percentage: "",
-        amount: "",
-        daily_used: "",
-      });
+      setUpdatedStock({ name: "", price: "", percentage: "", amount: "" });
       Swal.fire("Success", "Stock updated successfully.", "success");
-    } catch (error) {
-      console.error("Error updating stock:", error);
-      Swal.fire("Error", "Failed to update stock. Please try again.", "error");
+    } catch (err) {
+      console.error("Error updating stock:", err);
+      Swal.fire("Error", "Failed to update stock.", "error");
     }
   };
 
-  // Handle stock deletion
   const handleDeleteStock = async (id) => {
+    if (userRole !== "Admin") {
+      Swal.fire("Forbidden", "You cannot delete stocks.", "error");
+      return;
+    }
+
     const confirmation = await Swal.fire({
       title: "Are you sure?",
       text: "This stock will be permanently deleted.",
@@ -86,36 +113,22 @@ const Stocks = () => {
 
     if (confirmation.isConfirmed) {
       try {
-        await axios.delete(`http://127.0.0.1:8000/core/stocks/${id}/`);
+        await axios.delete(
+          `http://127.0.0.1:8000/core/stocks/${id}/`,
+          axiosConfig
+        );
         setStocks((prev) => prev.filter((stock) => stock.id !== id));
         Swal.fire("Deleted!", "The stock has been deleted.", "success");
-      } catch (error) {
-        console.error("Error deleting stock:", error);
-        Swal.fire(
-          "Error",
-          "Failed to delete stock. Please try again.",
-          "error"
-        );
+      } catch (err) {
+        console.error("Error deleting stock:", err);
+        Swal.fire("Error", "Failed to delete stock.", "error");
       }
     }
   };
 
-  // Loading and error handling states
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-screen">
-        <div className="text-xl font-semibold">Loading stocks...</div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex justify-center items-center h-screen">
-        <div className="text-red-500 font-semibold">{error}</div>
-      </div>
-    );
-  }
+  if (loading || userRole === null)
+    return <div className="text-xl font-semibold">Loading stocks...</div>;
+  if (error) return <div className="text-red-500 font-semibold">{error}</div>;
 
   return (
     <div className="container mx-auto p-8 bg-white rounded-lg shadow-lg">
@@ -123,8 +136,8 @@ const Stocks = () => {
         Stocks Management
       </h2>
 
-      {/* Update Form for Selected Stock */}
-      {editingStock && (
+      {/* Update Form */}
+      {editingStock && userRole === "Admin" && (
         <div className="mb-6 p-6 bg-blue-50 shadow rounded-lg">
           <h3 className="text-2xl font-semibold mb-4 text-blue-700">
             Edit Stock
@@ -136,11 +149,7 @@ const Stocks = () => {
                   {key.replace("_", " ").replace(/^\w/, (c) => c.toUpperCase())}
                 </label>
                 <input
-                  type={
-                    key === "price" || key === "amount" || key === "daily_used"
-                      ? "number"
-                      : "text"
-                  }
+                  type={key === "price" || key === "amount" ? "number" : "text"}
                   name={key}
                   value={updatedStock[key]}
                   onChange={handleInputChange}
@@ -162,7 +171,7 @@ const Stocks = () => {
       {/* Stocks Table */}
       <div className="mt-6 p-6 bg-blue-50 shadow rounded-lg">
         <h3 className="text-2xl font-semibold mb-4 text-blue-700">
-          تمام دوا های موجود{" "}
+          All Stocks
         </h3>
         <table className="w-full border-collapse text-sm">
           <thead className="bg-blue-500 text-white">
@@ -173,12 +182,13 @@ const Stocks = () => {
                 "Percentage",
                 "Amount",
                 "Total Price",
-                "Daily Used",
                 "Actions",
-              ].map((header) => (
+              ].map((header, idx) => (
                 <th
                   key={header}
-                  className="px-4 py-2 text-left border-b font-medium"
+                  className={`px-4 py-2 border-b font-medium ${
+                    idx === 5 ? "text-center" : "text-right"
+                  }`}
                 >
                   {header}
                 </th>
@@ -188,34 +198,45 @@ const Stocks = () => {
           <tbody>
             {stocks.map((stock) => (
               <tr key={stock.id} className="hover:bg-gray-100">
-                <td className="px-4 py-2 border-b">{stock.name}</td>
-                <td className="px-4 py-2 border-b">{stock.price}</td>
-                <td className="px-4 py-2 border-b">{stock.percentage}</td>
-                <td className="px-4 py-2 border-b">{stock.amount}</td>
-                <td className="px-4 py-2 border-b">{stock.total_price}</td>
-                <td className="px-4 py-2 border-b">{stock.daily_used}</td>
+                <td className="px-4 py-2 border-b text-right">{stock.name}</td>
+                <td className="px-4 py-2 border-b text-right">{stock.price}</td>
+                <td className="px-4 py-2 border-b text-right">
+                  {stock.percentage}
+                </td>
+                <td className="px-4 py-2 border-b text-right">
+                  {stock.amount}
+                </td>
+                <td className="px-4 py-2 border-b text-right">
+                  {stock.total_price}
+                </td>
                 <td className="px-4 py-2 border-b text-center">
-                  <button
-                    onClick={() => {
-                      setEditingStock(stock);
-                      setUpdatedStock({
-                        name: stock.name,
-                        price: stock.price,
-                        percentage: stock.percentage,
-                        amount: stock.amount,
-                        daily_used: stock.daily_used,
-                      });
-                    }}
-                    className="bg-yellow-500 text-white px-3 py-1 rounded hover:bg-yellow-600 transition duration-150 mr-2"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => handleDeleteStock(stock.id)}
-                    className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition duration-150"
-                  >
-                    Delete
-                  </button>
+                  {userRole === "Admin" && (
+                    <>
+                      <button
+                        onClick={() => {
+                          setEditingStock(stock);
+                          setUpdatedStock({
+                            name: stock.name,
+                            price: stock.price,
+                            percentage: stock.percentage,
+                            amount: stock.amount,
+                          });
+                        }}
+                        className="bg-yellow-500 text-white px-3 py-1 rounded hover:bg-yellow-600 transition duration-150 mr-2"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDeleteStock(stock.id)}
+                        className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition duration-150"
+                      >
+                        Delete
+                      </button>
+                    </>
+                  )}
+                  {userRole === "reception" && (
+                    <span className="text-gray-500">View Only</span>
+                  )}
                 </td>
               </tr>
             ))}

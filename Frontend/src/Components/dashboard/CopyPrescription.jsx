@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import Swal from "sweetalert2";
 
 const CopyPrescription = () => {
   const [pharmaceuticals, setPharmaceuticals] = useState([]);
@@ -9,235 +8,216 @@ const CopyPrescription = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const [nextUrl, setNextUrl] = useState(null);
+  const [prevUrl, setPrevUrl] = useState(null);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+
+  const fetchDoctors = async () => {
+    try {
+      const res = await axios.get(
+        "http://127.0.0.1:8000/users/api/users/?role=doctor"
+      );
+      setDoctors(Array.isArray(res.data) ? res.data : []);
+    } catch {
+      setError("Error loading doctors.");
+    }
+  };
+
+  const fetchPatients = async () => {
+    try {
+      const res = await axios.get("http://127.0.0.1:8000/core/patients/");
+      setPatients(Array.isArray(res.data) ? res.data : []);
+    } catch {
+      setError("Error loading patients.");
+    }
+  };
+
+  const fetchPharmaceuticals = async (url = null) => {
+    setLoading(true);
+    try {
+      const apiUrl =
+        url || `http://127.0.0.1:8000/core/pharmaceuticals/list/?page=${page}`;
+      const res = await axios.get(apiUrl);
+
+      if (res.data && res.data.results) {
+        setPharmaceuticals(res.data.results);
+        setTotalPages(Math.ceil(res.data.count / res.data.results.length));
+        setNextUrl(res.data.next);
+        setPrevUrl(res.data.previous);
+      } else {
+        setPharmaceuticals([]);
+        setTotalPages(1);
+        setNextUrl(null);
+        setPrevUrl(null);
+      }
+    } catch {
+      setError("Error loading prescriptions.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchDoctors = async () => {
-      try {
-        const response = await axios.get(
-          "http://127.0.0.1:8000/users/api/users/?role=doctor"
-        );
-        if (Array.isArray(response.data)) {
-          setDoctors(response.data);
-        } else {
-          console.warn("Expected an array, but got:", response.data);
-          setDoctors([]);
-        }
-      } catch (error) {
-        console.error("Error fetching doctors:", error);
-        setError("خطا در بارگیری اطلاعات پزشکان.");
-      }
-    };
-
-    const fetchPatients = async () => {
-      try {
-        const response = await axios.get(
-          "http://127.0.0.1:8000/core/patients/"
-        );
-        if (Array.isArray(response.data)) {
-          setPatients(response.data);
-        } else {
-          console.warn("Expected an array, but got:", response.data);
-          setPatients([]);
-        }
-      } catch (error) {
-        console.error("Error fetching patients:", error);
-        setError("خطا در بارگیری اطلاعات بیماران.");
-      }
-    };
-
-    const fetchPharmaceuticals = async () => {
-      try {
-        const response = await axios.get(
-          "http://127.0.0.1:8000/core/pharmaceuticals/"
-        );
-        if (Array.isArray(response.data)) {
-          setPharmaceuticals(response.data);
-        } else {
-          console.warn("Expected an array, but got:", response.data);
-          setPharmaceuticals([]);
-        }
-      } catch (error) {
-        console.error("Error fetching pharmaceuticals:", error);
-        setError("خطا در بارگیری اطلاعات داروها.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchDoctors();
     fetchPatients();
     fetchPharmaceuticals();
   }, []);
 
-  const handlePrint = (item) => {
-    const printWindow = window.open("", "_blank", "width=800,height=600");
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>جزئیات صورتحساب بیمارستان</title>
-          <style>
-            body {
-              font-family: 'Arial', sans-serif;
-              margin: 20px;
-              background-color: #f4f4f9;
-              color: #333;
-            }
-            .bill-container {
-              border: 1px solid #ddd;
-              border-radius: 10px;
-              padding: 20px;
-              box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-              background-color: #fff;
-              max-width: 600px;
-              margin: auto;
-            }
-            .bill-header {
-              text-align: center;
-              border-bottom: 2px solid #ddd;
-              margin-bottom: 20px;
-            }
-            .bill-header h1 {
-              font-size: 24px;
-              margin-bottom: 5px;
-            }
-            .bill-header p {
-              font-size: 14px;
-              color: #777;
-            }
-            .bill-details {
-              margin-bottom: 20px;
-            }
-            .bill-details p {
-              margin: 5px 0;
-              line-height: 1.6;
-            }
-            .bill-details strong {
-              color: #0056b3;
-            }
-            .bill-footer {
-              text-align: center;
-              margin-top: 20px;
-              font-size: 12px;
-              color: #777;
-            }
-            .bill-footer p {
-              margin: 5px 0;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="bill-container">
-            <div class="bill-header">
-              <h1>جزئیات صورتحساب بیمارستان</h1>
-              <p><strong>از خدمات شما متشکریم</strong></p>
-            </div>
-            <div class="bill-details">
-              <p><strong>پزشک:</strong> ${item.doctor_name || "N/A"}</p>
-              <p><strong>بیمار:</strong> ${getPatientNameById(
-                item.patient_name
-              )}</p>
-              <p><strong>نسخه:</strong> ${item.copy}</p>
-              <p><strong>قیمت:</strong> $${parseFloat(item.price).toFixed(
-                2
-              )}</p>
-              <p><strong>تاریخ ایجاد:</strong> ${new Date(
-                item.created_at
-              ).toLocaleString()}</p>
-            </div>
-            <div class="bill-footer">
-              <p>امیدواریم به زودی حالتان بهتر شود!</p>
-              <p><em>برای سوالات، با تیم پشتیبانی ما تماس بگیرید</em></p>
-            </div>
-          </div>
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
-    printWindow.print();
-  };
-
-  // Helper functions to get doctor's and patient's full names
   const getDoctorNameById = (id) => {
-    const doctor = doctors.find((doc) => doc.id === id);
-    return doctor ? `${doctor.first_name} ${doctor.last_name}` : "N/A";
+    const d = doctors.find((doc) => doc.id === id);
+    return d ? `${d.first_name} ${d.last_name}` : "N/A";
   };
 
   const getPatientNameById = (id) => {
-    const patient = patients.find((pat) => pat.id === id);
-    return patient ? patient.name : "N/A";
+    const p = patients.find((pat) => pat.id === id);
+    return p ? p.name : "N/A";
   };
 
-  // Loading and error handling UI
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-screen">
-        <div className="text-xl font-semibold">Loading pharmaceuticals...</div>
-      </div>
-    );
-  }
+  const handlePrint = (item) => {
+    const drugNames =
+      item.drugs && item.drugs.length > 0
+        ? item.drugs.map((d) => `${d.drug.name} (x${d.amount_used})`).join(", ")
+        : "No drugs";
 
-  if (error) {
+    const w = window.open("", "_blank", "width=800,height=600");
+    w.document.write(`
+      <html>
+        <head><title>Prescription</title></head>
+        <body>
+          <h2>Prescription Info</h2>
+
+          <p><strong>Doctor:</strong> ${getDoctorNameById(item.doctor_name)}</p>
+          <p><strong>Patient:</strong> ${getPatientNameById(
+            item.patient_name
+          )}</p>
+
+          <p><strong>Drug Name(s):</strong> ${drugNames}</p>
+
+          <p><strong>Prescription:</strong> ${item.copy}</p>
+          <p><strong>Price:</strong> ${item.price} AF</p>
+        </body>
+      </html>
+    `);
+    w.document.close();
+    w.print();
+  };
+
+  if (loading)
     return (
-      <div className="flex justify-center items-center h-screen">
-        <div className="text-red-500 font-semibold">{error}</div>
+      <div className="flex justify-center items-center h-screen text-xl font-semibold">
+        Loading prescriptions...
       </div>
     );
-  }
+
+  if (error)
+    return (
+      <div className="flex justify-center items-center h-screen text-red-500 font-semibold">
+        {error}
+      </div>
+    );
 
   return (
-    <div className="p-6 bg-white shadow rounded-lg">
-      <h2 className="text-2xl font-bold mb-4">لیست نسخه‌های کپی</h2>
-      {pharmaceuticals.length > 0 ? (
-        <div className="overflow-x-auto">
-          <table className="min-w-full table-auto border-collapse">
-            <thead className="bg-gradient-to-r from-blue-500 to-teal-400 text-white text-left">
-              <tr className="text-left">
-                {["Doctor", "Patient", "Prescription", "Price", "Print"].map(
-                  (header) => (
-                    <th
-                      key={header}
-                      className="px-6 py-3 border-b text-left text-sm font-semibold"
-                    >
-                      {header}
-                    </th>
-                  )
-                )}
-              </tr>
-            </thead>
-            <tbody>
-              {pharmaceuticals.map((item) => (
-                <tr
-                  key={item.id}
-                  className="hover:bg-gray-50 transition duration-200"
+    <div className="flex justify-center items-center mt-6 mb-6 w-full">
+      <div className="w-full max-w-4xl bg-white shadow-lg rounded-lg p-6">
+        <h2 className="text-2xl font-bold mb-6 text-center text-gray-700">
+          لیست نسخه‌های کپی
+        </h2>
+
+        {pharmaceuticals.length === 0 ? (
+          <p className="text-gray-700 text-center">هیچ نسخه‌ای موجود نیست.</p>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="min-w-full table-auto border-collapse">
+                <thead className="bg-gradient-to-r from-blue-500 to-teal-400 text-white">
+                  <tr>
+                    <th className="px-6 py-3 text-center">Doctor</th>
+                    <th className="px-6 py-3 text-center">Patient</th>
+                    <th className="px-6 py-3 text-center">Drug Name</th>
+                    <th className="px-6 py-3 text-center">Prescription</th>
+                    <th className="px-6 py-3 text-center">Price</th>
+                    <th className="px-6 py-3 text-center">Print</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {pharmaceuticals.map((item) => (
+                    <tr key={item.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-3 text-center">
+                        {getDoctorNameById(item.doctor_name)}
+                      </td>
+
+                      <td className="px-6 py-3 text-center">
+                        {getPatientNameById(item.patient_name)}
+                      </td>
+
+                      {/* FIXED: Correct drug name path */}
+                      <td className="px-6 py-3 text-center">
+                        {item.drugs && item.drugs.length > 0
+                          ? item.drugs
+                              .map(
+                                (drugItem) =>
+                                  `${drugItem.drug.name} (x${drugItem.amount_used})`
+                              )
+                              .join(", ")
+                          : "No drugs"}
+                      </td>
+
+                      <td className="px-6 py-3 text-center">{item.copy}</td>
+
+                      <td className="px-6 py-3 text-center">{item.price} AF</td>
+
+                      <td className="px-6 py-3 text-center">
+                        <button
+                          onClick={() => handlePrint(item)}
+                          className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+                        >
+                          Print
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {(nextUrl || prevUrl) && (
+              <div className="flex justify-center gap-6 items-center mt-6">
+                <button
+                  type="button"
+                  disabled={!prevUrl}
+                  onClick={() => prevUrl && fetchPharmaceuticals(prevUrl)}
+                  className={`px-4 py-2 rounded-md ${
+                    !prevUrl
+                      ? "bg-gray-300 cursor-not-allowed"
+                      : "bg-blue-500 text-white hover:bg-blue-600"
+                  }`}
                 >
-                  <td className="px-6 py-4 border-b text-sm">
-                    {getDoctorNameById(item.doctor_name)}
-                  </td>
-                  <td className="px-6 py-4 border-b text-sm">
-                    {getPatientNameById(item.patient_name)}
-                  </td>
-                  <td className="px-6 py-4 border-b text-sm">{item.copy}</td>
-                  <td className="px-6 py-4 border-b text-sm">
-                    {item.price !== null && item.price !== undefined
-                      ? parseFloat(item.price).toFixed(2)
-                      : "0.00"}{" "}
-                    AF
-                  </td>
-                  <td className="px-6 py-4 border-b text-sm text-center">
-                    <button
-                      onClick={() => handlePrint(item)}
-                      className="bg-gradient-to-r from-blue-500 to-teal-400 text-white px-4 py-2 rounded-md hover:bg-gradient-to-l"
-                    >
-                      Print Prescription
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <p className="text-gray-700 mt-4">هیچ دارویی موجود نیست</p>
-      )}
+                  Previous
+                </button>
+
+                <span className="font-bold">
+                  Page {page} / {totalPages}
+                </span>
+
+                <button
+                  type="button"
+                  disabled={!nextUrl}
+                  onClick={() => nextUrl && fetchPharmaceuticals(nextUrl)}
+                  className={`px-4 py-2 rounded-md ${
+                    !nextUrl
+                      ? "bg-gray-300 cursor-not-allowed"
+                      : "bg-blue-500 text-white hover:bg-blue-600"
+                  }`}
+                >
+                  Next
+                </button>
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 };

@@ -1,57 +1,125 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import axios from "axios";
-import Swal from "sweetalert2";
+import { showSuccessToast, showErrorToast, showWarningToast } from "../Toast";
 
 function DailyCopyPrescription() {
-  // State to store the form data for new prescription
   const [newPrescription, setNewPrescription] = useState({
     doctor_name: "",
     patient_name: "",
+    selectedDrugs: [],
     copy: "",
-    price: "",
   });
 
-  // State for storing list of doctors and patients
+  const [drugSearch, setDrugSearch] = useState("");
+  const [patientSearch, setPatientSearch] = useState("");
+  const [allDrugs, setAllDrugs] = useState([]);
   const [doctors, setDoctors] = useState([]);
   const [patients, setPatients] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+
+  // Load token from storage
+  const token = localStorage.getItem("auth_token");
+
+  const axiosConfig = {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+  };
 
   useEffect(() => {
-    const fetchDoctors = async () => {
-      try {
-        const response = await axios.get(
-          "http://127.0.0.1:8000/users/api/users/?role=doctor"
-        );
-        setDoctors(response.data);
-      } catch (err) {
-        console.error("Error fetching doctors:", err);
-        setError("Failed to load doctors.");
-      }
-    };
-
-    const fetchPatients = async () => {
-      try {
-        const response = await axios.get(
-          "http://localhost:8000/core/patients/"
-        );
-        setPatients(response.data);
-      } catch (err) {
-        console.error("Error fetching patients:", err);
-        setError("Failed to load patients.");
-      }
-    };
-
     fetchDoctors();
     fetchPatients();
+    fetchDrugs();
   }, []);
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
+  const fetchDoctors = async () => {
+    try {
+      const res = await axios.get(
+        "http://127.0.0.1:8000/users/api/users/?role=doctor",
+        axiosConfig
+      );
+      setDoctors(res.data);
+    } catch {
+      showErrorToast("Failed to load doctors.");
+    }
+  };
+
+  const fetchPatients = async () => {
+    try {
+      const res = await axios.get(
+        "http://localhost:8000/core/patients/",
+        axiosConfig
+      );
+      setPatients(res.data);
+    } catch {
+      showErrorToast("Failed to load patients.");
+    }
+  };
+
+  const fetchDrugs = async () => {
+    try {
+      const res = await axios.get(
+        "http://localhost:8000/core/stocks/",
+        axiosConfig
+      );
+      setAllDrugs(res.data);
+    } catch {
+      showErrorToast("Failed to load drugs.");
+    }
+  };
+
+  const filteredDrugs = allDrugs.filter(
+    (drug) =>
+      drug.name.toLowerCase().includes(drugSearch.toLowerCase()) &&
+      !newPrescription.selectedDrugs.some((d) => d.drugId === drug.id)
+  );
+
+  const filteredPatients = patients.filter((p) =>
+    p.name.toLowerCase().includes(patientSearch.toLowerCase())
+  );
+
+  const handleAddDrug = (drug) => {
     setNewPrescription((prev) => ({
       ...prev,
-      [name]: value,
+      selectedDrugs: [
+        ...prev.selectedDrugs,
+        {
+          drugId: drug.id,
+          name: drug.name,
+          amount: 1,
+          stock: drug.amount,
+          total_price: drug.total_price, // needed for auto price calc
+        },
+      ],
     }));
+    setDrugSearch("");
+  };
+
+  const handleDrugAmountChange = (drugId, value) => {
+    setNewPrescription((prev) => ({
+      ...prev,
+      selectedDrugs: prev.selectedDrugs.map((d) =>
+        d.drugId === drugId
+          ? { ...d, amount: Math.min(Math.max(Number(value), 1), d.stock) }
+          : d
+      ),
+    }));
+  };
+
+  const handleRemoveDrug = (drugId) => {
+    setNewPrescription((prev) => ({
+      ...prev,
+      selectedDrugs: prev.selectedDrugs.filter((d) => d.drugId !== drugId),
+    }));
+  };
+
+  // ✅ AUTO PRICE CALCULATION
+  const calculateTotalPrice = () => {
+    return newPrescription.selectedDrugs.reduce(
+      (sum, d) => sum + d.amount * d.total_price,
+      0
+    );
   };
 
   const handleAddPrescription = async (e) => {
@@ -60,155 +128,216 @@ function DailyCopyPrescription() {
     if (
       !newPrescription.doctor_name ||
       !newPrescription.patient_name ||
-      !newPrescription.copy ||
-      !newPrescription.price
+      newPrescription.selectedDrugs.length === 0 ||
+      !newPrescription.copy
     ) {
-      Swal.fire("Warning", "Please fill in all fields.", "warning");
+      showWarningToast("Please fill all fields.");
       return;
     }
+
+    const autoPrice = calculateTotalPrice();
+
+    const payload = {
+      doctor_name: newPrescription.doctor_name,
+      patient_name: newPrescription.patient_name,
+      copy: newPrescription.copy,
+      price: autoPrice, // ✔ AUTO CALCULATED PRICE
+      drugs: newPrescription.selectedDrugs.map((d) => ({
+        drug_id: d.drugId,
+        amount_used: d.amount,
+      })),
+    };
 
     setLoading(true);
 
     try {
-      const prescriptionData = {
-        doctor_name: newPrescription.doctor_name,
-        patient_name: newPrescription.patient_name,
-        copy: newPrescription.copy,
-        price: newPrescription.price,
-      };
-
-      const response = await axios.post(
+      await axios.post(
         "http://localhost:8000/core/pharmaceuticals/",
-        prescriptionData
+        payload,
+        axiosConfig
       );
 
-      Swal.fire("Success", "Prescription added successfully!", "success");
+      showSuccessToast("Prescription added successfully!");
+
+      // Update stock locally
+      setAllDrugs((prev) =>
+        prev.map((drug) => {
+          const used = payload.drugs.find((d) => d.drug_id === drug.id);
+          if (used) return { ...drug, amount: drug.amount - used.amount_used };
+          return drug;
+        })
+      );
 
       setNewPrescription({
         doctor_name: "",
         patient_name: "",
+        selectedDrugs: [],
         copy: "",
-        price: "",
       });
+      setPatientSearch("");
+      setDrugSearch("");
     } catch (err) {
-      console.error("Error adding prescription:", err);
-      if (err.response) {
-        console.error("Backend Error:", err.response.data);
-        setError(err.response.data);
-        Swal.fire(
-          "Error",
-          `Failed to add prescription: ${JSON.stringify(err.response.data)}`,
-          "error"
-        );
-      } else {
-        setError("An error occurred. Please try again.");
-        Swal.fire("Error", "An error occurred. Please try again.", "error");
-      }
+      showErrorToast("Error adding prescription.");
     } finally {
       setLoading(false);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-screen">
-        <div className="text-xl font-semibold text-blue-600">
-          Adding prescription...
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex justify-center items-center h-screen">
-        <div className="text-red-500 font-semibold">{error}</div>
-      </div>
-    );
-  }
-
   return (
-    <div className="max-w-3xl mx-auto p-8 bg-white shadow-lg rounded-lg">
-      <h2 className="text-3xl font-bold mb-4 text-gray-800">
-        Add New Prescription
+    <div className="max-w-4xl mx-auto p-8 bg-white shadow-xl rounded-xl mt-6 mb-6">
+      <h2 className="text-3xl font-bold mb-6 text-center text-gray-800">
+        📋 Add New Prescription
       </h2>
-      <div className="mt-6">
-        <h3 className="text-2xl font-semibold mb-4 text-gray-700"></h3>
-        <form onSubmit={handleAddPrescription} className="space-y-6">
-          <div className="mb-4">
-            <label className="block text-sm font-semibold text-gray-600 mb-2">
-              Doctor
-            </label>
-            <select
-              name="doctor_name"
-              value={newPrescription.doctor_name}
-              onChange={handleInputChange}
-              className="block w-full border border-gray-300 rounded-lg p-3 shadow-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-            >
-              <option value="">Select Doctor</option>
-              {doctors.map((doctor) => (
-                <option key={doctor.id} value={doctor.id}>
-                  {doctor.first_name} {doctor.last_name}
-                </option>
-              ))}
-            </select>
-          </div>
 
-          <div className="mb-4">
-            <label className="block text-sm font-semibold text-gray-600 mb-2">
-              Patient
-            </label>
-            <select
-              name="patient_name"
-              value={newPrescription.patient_name}
-              onChange={handleInputChange}
-              className="block w-full border border-gray-300 rounded-lg p-3 shadow-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-            >
-              <option value="">Select Patient</option>
-              {patients.map((patient) => (
-                <option key={patient.id} value={patient.id}>
-                  {patient.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="mb-4">
-            <label className="block text-sm font-semibold text-gray-600 mb-2">
-              Copy
-            </label>
-            <input
-              type="text"
-              name="copy"
-              value={newPrescription.copy}
-              onChange={handleInputChange}
-              className="block w-full border border-gray-300 rounded-lg p-3 shadow-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-              placeholder="Enter prescription copy"
-            />
-          </div>
-
-          <div className="mb-4">
-            <label className="block text-sm font-semibold text-gray-600 mb-2">
-              Price
-            </label>
-            <input
-              type="number"
-              name="price"
-              value={newPrescription.price}
-              onChange={handleInputChange}
-              className="block w-full border border-gray-300 rounded-lg p-3 shadow-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-              placeholder="Enter price"
-            />
-          </div>
-
-          <button
-            type="submit"
-            className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition duration-150 focus:outline-none focus:ring-2 focus:ring-blue-500"
+      <form onSubmit={handleAddPrescription} className="space-y-6">
+        {/* Doctor */}
+        <div>
+          <label className="text-lg font-semibold">Doctor</label>
+          <select
+            value={newPrescription.doctor_name}
+            onChange={(e) =>
+              setNewPrescription((prev) => ({
+                ...prev,
+                doctor_name: e.target.value, // store doctor ID here
+              }))
+            }
+            className="w-full border p-3 rounded text-lg"
           >
-            {loading ? "Adding..." : "Add Prescription"}
-          </button>
-        </form>
-      </div>
+            <option value="">Select Doctor</option>
+            {doctors.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.first_name} {d.last_name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Patient Search */}
+        <div>
+          <label className="text-lg font-semibold">Search Patient</label>
+          <input
+            type="text"
+            value={patientSearch}
+            onChange={(e) => setPatientSearch(e.target.value)}
+            className="w-full border p-3 rounded text-lg"
+          />
+          {patientSearch && (
+            <div className="border rounded bg-white shadow max-h-40 overflow-y-auto">
+              {filteredPatients.map((p) => (
+                <div
+                  key={p.id}
+                  onClick={() => {
+                    setNewPrescription((prev) => ({
+                      ...prev,
+                      patient_name: p.id,
+                    }));
+                    setPatientSearch(p.name);
+                  }}
+                  className="p-2 hover:bg-gray-100 cursor-pointer"
+                >
+                  {p.name}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Drug Search */}
+        <div>
+          <label className="text-lg font-semibold">Search Drugs</label>
+          <input
+            type="text"
+            value={drugSearch}
+            onChange={(e) => setDrugSearch(e.target.value)}
+            className="w-full border p-3 rounded text-lg"
+            placeholder="Search drugs..."
+          />
+
+          {drugSearch && (
+            <div className="border rounded bg-white shadow max-h-40 overflow-y-auto">
+              {filteredDrugs.map((drug) => (
+                <div
+                  key={drug.id}
+                  className="flex justify-between items-center p-2 hover:bg-gray-100"
+                >
+                  <span>
+                    {drug.name} (Stock: {drug.amount})
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleAddDrug(drug)}
+                    className="bg-green-600 text-white px-3 py-1 rounded"
+                  >
+                    Add
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Selected Drugs */}
+        {newPrescription.selectedDrugs.length > 0 && (
+          <div className="bg-gray-50 p-4 rounded-md">
+            <h3 className="text-lg font-semibold mb-3">Selected Drugs</h3>
+
+            {newPrescription.selectedDrugs.map((d) => (
+              <div key={d.drugId} className="mb-3">
+                <label className="font-semibold">{d.name}</label>
+                <div className="flex items-center gap-3 mt-1">
+                  <input
+                    type="number"
+                    min="1"
+                    max={d.stock}
+                    value={d.amount}
+                    onChange={(e) =>
+                      handleDrugAmountChange(d.drugId, e.target.value)
+                    }
+                    className="w-24 border p-2 rounded"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveDrug(d.drugId)}
+                    className="bg-red-600 text-white px-3 py-1 rounded"
+                  >
+                    Remove
+                  </button>
+
+                  <span className="text-gray-500">
+                    Stock: {d.stock} | Price: {d.total_price} × {d.amount}
+                  </span>
+                </div>
+              </div>
+            ))}
+
+            {/* AUTO PRICE DISPLAY */}
+            <div className="text-right text-xl font-bold mt-4">
+              Total Price: {calculateTotalPrice()} AFN
+            </div>
+          </div>
+        )}
+
+        {/* Next Visit */}
+        <div>
+          <label className="text-lg font-semibold">Next Visit</label>
+          <input
+            type="text"
+            value={newPrescription.copy}
+            onChange={(e) =>
+              setNewPrescription((prev) => ({ ...prev, copy: e.target.value }))
+            }
+            className="w-full border p-3 rounded text-lg"
+          />
+        </div>
+
+        {/* Submit */}
+        <button
+          type="submit"
+          className="w-full bg-blue-600 text-white py-3 rounded text-lg font-bold"
+        >
+          {loading ? "Saving..." : "Add Prescription"}
+        </button>
+      </form>
     </div>
   );
 }

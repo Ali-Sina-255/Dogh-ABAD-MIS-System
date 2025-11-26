@@ -35,13 +35,13 @@ class UserManager(BaseUserManager):
 
 class User(AbstractBaseUser):
     Admin = 0
-    Designer = 1
+    Doctor = 1
     Reception = 2
-    SuperDesigner = 3
+    Other = 3
     ROLE_CHOICES = (
-        (Designer, "Designer"),
+        (Doctor, "Doctor"),
         (Reception, "Reception"),
-        (SuperDesigner, "SuperDesigner"),
+        (Other, "Other"),
         (Admin, "Admin"),
     )
 
@@ -73,8 +73,8 @@ class User(AbstractBaseUser):
         return True
 
     def get_role(self):
-        if self.role == self.Designer:
-            return "Designer"
+        if self.role == self.Doctor:
+            return "Doctor"
         elif self.role == self.Reception:
             return "Reception"
         else:

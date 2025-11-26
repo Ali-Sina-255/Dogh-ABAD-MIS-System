@@ -7,11 +7,17 @@ from django.http import HttpResponse
 from django.shortcuts import redirect
 from django.utils.http import urlsafe_base64_decode
 from rest_framework import generics, status, viewsets
+from rest_framework.authentication import (
+    BasicAuthentication,
+    SessionAuthentication,
+    TokenAuthentication,
+)
 from rest_framework.decorators import action
 from rest_framework.exceptions import NotFound, PermissionDenied
 from rest_framework.permissions import AllowAny, BasePermission, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.viewsets import ModelViewSet
 from rest_framework_simplejwt.views import TokenObtainPairView
 
 from .models import User, UserProfile
@@ -28,26 +34,49 @@ from .utils import send_verification_email
 User = get_user_model()
 
 
-class UserViewSet(viewsets.ModelViewSet):
+class UserViewSet(ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    permission_classes = [
-        AllowAny
-    ]  # Change this if you want to require authentication globally
+    permission_classes = [AllowAny]
 
-    @action(detail=False, methods=["post"], permission_classes=[IsAuthenticated])
-    def create_user(self, request):
-        serializer = CreateUserSerializer(data=request.data)
-        if serializer.is_valid():
-            user = serializer.save()
-            return Response(
-                {
-                    "message": "User created successfully",
-                    "user": UserSerializer(user).data,
-                },
-                status=201,
-            )
-        return Response(serializer.errors, status=400)
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        role = self.request.query_params.get("role")
+
+        if role:
+            role = role.lower()
+            if role == "doctor":
+                queryset = queryset.filter(role=User.Doctor)
+            elif role == "reception":
+                queryset = queryset.filter(role=User.Reception)
+            elif role == "admin":
+                queryset = queryset.filter(role=User.Admin)
+            elif role == "other":
+                queryset = queryset.filter(role=User.Other)
+
+        return queryset
+
+
+# class UserViewSet(viewsets.ModelViewSet):
+#     queryset = User.objects.all()
+#     serializer_class = UserSerializer
+#     permission_classes = [
+#         AllowAny
+#     ]  # Change this if you want to require authentication globally
+
+#     @action(detail=False, methods=["post"], permission_classes=[IsAuthenticated])
+#     def create_user(self, request):
+#         serializer = CreateUserSerializer(data=request.data)
+#         if serializer.is_valid():
+#             user = serializer.save()
+#             return Response(
+#                 {
+#                     "message": "User created successfully",
+#                     "user": UserSerializer(user).data,
+#                 },
+#                 status=201,
+#             )
+#         return Response(serializer.errors, status=400)
 
 
 class MyTokenObtainPairView(TokenObtainPairView):

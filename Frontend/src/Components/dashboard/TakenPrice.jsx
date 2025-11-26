@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import Swal from "sweetalert2";
+import { showErrorToast, showSuccessToast } from "../Toast";
 
 const TakenPrice = () => {
   const [takenPrices, setTakenPrices] = useState([]);
@@ -14,7 +14,7 @@ const TakenPrice = () => {
 
   const [editMode, setEditMode] = useState(false);
   const [currentEdit, setCurrentEdit] = useState(null);
-  const [showForm, setShowForm] = useState(false); // State to control form visibility
+  const [showForm, setShowForm] = useState(false);
 
   useEffect(() => {
     const fetchTakenPrices = async () => {
@@ -44,6 +44,7 @@ const TakenPrice = () => {
 
   const handleFormSubmit = async (e) => {
     e.preventDefault();
+
     if (editMode && currentEdit) {
       try {
         const response = await axios.put(
@@ -58,10 +59,10 @@ const TakenPrice = () => {
         setEditMode(false);
         setCurrentEdit(null);
         setNewTakenPrice({ name: "", description: "", amount: "" });
-        setShowForm(false); // Hide the form after submission
-        Swal.fire("Success", "Taken price updated successfully.", "success");
+        setShowForm(false);
+        showSuccessToast("Taken price updated successfully!");
       } catch (error) {
-        Swal.fire("Error", "Failed to update taken price.", "error");
+        showErrorToast("Failed to update taken price.");
       }
     } else {
       try {
@@ -71,10 +72,10 @@ const TakenPrice = () => {
         );
         setTakenPrices((prev) => [...prev, response.data]);
         setNewTakenPrice({ name: "", description: "", amount: "" });
-        setShowForm(false); // Hide the form after submission
-        Swal.fire("Success", "Taken price added successfully.", "success");
+        setShowForm(false);
+        showSuccessToast("Taken price added successfully!");
       } catch (error) {
-        Swal.fire("Error", "Failed to add taken price.", "error");
+        showErrorToast("Failed to add taken price.");
       }
     }
   };
@@ -83,9 +84,9 @@ const TakenPrice = () => {
     try {
       await axios.delete(`http://127.0.0.1:8000/core/taken-expenses/${id}/`);
       setTakenPrices((prev) => prev.filter((price) => price.id !== id));
-      Swal.fire("Deleted", "Taken price deleted successfully.", "success");
+      showSuccessToast("Taken price deleted successfully!");
     } catch (error) {
-      Swal.fire("Error", "Failed to delete taken price.", "error");
+      showErrorToast("Failed to delete taken price.");
     }
   };
 
@@ -97,16 +98,11 @@ const TakenPrice = () => {
       description: price.description,
       amount: price.amount,
     });
-    setShowForm(true); // Show the form when editing
+    setShowForm(true);
   };
 
-  if (loading) {
-    return <div>Loading taken prices...</div>;
-  }
-
-  if (error) {
-    return <div>{error}</div>;
-  }
+  if (loading) return <div>Loading taken prices...</div>;
+  if (error) return <div>{error}</div>;
 
   return (
     <div className="container mx-auto p-6 min-h-screen">
@@ -114,61 +110,67 @@ const TakenPrice = () => {
         Taken Price List
       </h1>
 
-      {/* Button to toggle the form visibility */}
+      {/* Button to toggle form */}
       {!showForm && (
         <button
           onClick={() => setShowForm(true)}
-          className="bg-gradient-to-r from-yellow-500 to-orange-400 text-white px-6 py-2 rounded-md hover:bg-gradient-to-l w-full mb-6"
+          className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 w-full mb-6"
         >
           Add New Taken Price
         </button>
       )}
 
-      {/* Form to add/update taken price */}
+      {/* Form */}
       {showForm && (
-        <div className="mt-8 mx-auto p-6 w-full sm:w-4/5 lg:w-full rounded-lg shadow-lg bg-white">
-          <h2 className="text-xl font-semibold text-gray-700">
+        <div className="max-w-xl mx-auto p-6 bg-white shadow rounded-lg mb-6">
+          <h2 className="text-2xl font-bold text-gray-800 mb-4">
             {editMode ? "Update Taken Price" : "Add New Taken Price"}
           </h2>
+
           <form onSubmit={handleFormSubmit} className="space-y-4">
             <div>
-              <label className="block text-gray-700">Name</label>
+              <label className="block text-sm font-semibold mb-1">Name</label>
               <input
                 type="text"
                 name="name"
                 value={newTakenPrice.name}
                 onChange={handleInputChange}
-                className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full border p-2 rounded"
                 placeholder="Enter taken price name"
                 required
               />
             </div>
+
             <div>
-              <label className="block text-gray-700">Description</label>
+              <label className="block text-sm font-semibold mb-1">
+                Description
+              </label>
               <textarea
                 name="description"
                 value={newTakenPrice.description}
                 onChange={handleInputChange}
-                className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter description of taken price"
+                className="w-full border p-2 rounded"
+                placeholder="Enter description"
                 required
               />
             </div>
+
             <div>
-              <label className="block text-gray-700">Amount</label>
+              <label className="block text-sm font-semibold mb-1">Amount</label>
               <input
                 type="number"
                 name="amount"
                 value={newTakenPrice.amount}
                 onChange={handleInputChange}
-                className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter taken price amount"
+                className="w-full border p-2 rounded"
+                placeholder="Enter amount"
                 required
               />
             </div>
+
             <button
               type="submit"
-              className="bg-gradient-to-r from-blue-500 to-teal-400 text-white px-6 py-2 rounded-md hover:bg-gradient-to-l focus:outline-none w-full"
+              className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
             >
               {editMode ? "Update Taken Price" : "Add Taken Price"}
             </button>
@@ -176,10 +178,10 @@ const TakenPrice = () => {
         </div>
       )}
 
-      {/* Table to display the taken prices */}
+      {/* Table */}
       <div className="mt-8 overflow-x-auto bg-white rounded-lg shadow-lg">
         <table className="table-auto w-full border-collapse">
-          <thead className="bg-gradient-to-r from-yellow-500 to-orange-400 text-white">
+          <thead className="bg-gradient-to-r from-blue-600 to-blue-400 text-white">
             <tr>
               <th className="px-4 py-2 border-b">Name</th>
               <th className="px-4 py-2 border-b">Description</th>
@@ -205,21 +207,15 @@ const TakenPrice = () => {
                     Update
                   </button>
                   <button
-                    onClick={() =>
-                      Swal.fire({
-                        title: "Are you sure?",
-                        text: "You won't be able to revert this!",
-                        icon: "warning",
-                        showCancelButton: true,
-                        confirmButtonColor: "#d33",
-                        cancelButtonColor: "#3085d6",
-                        confirmButtonText: "Yes, delete it!",
-                      }).then((result) => {
-                        if (result.isConfirmed) {
-                          handleDelete(price.id);
-                        }
-                      })
-                    }
+                    onClick={() => {
+                      if (
+                        window.confirm(
+                          "Are you sure? You won't be able to revert this!"
+                        )
+                      ) {
+                        handleDelete(price.id);
+                      }
+                    }}
                     className="bg-gradient-to-r from-red-500 to-red-700 text-white px-4 py-1 rounded-md hover:bg-gradient-to-l"
                   >
                     Delete

@@ -6,6 +6,16 @@ admin.site.register(models.Patient)
 admin.site.register(models.StaffType)
 admin.site.register(models.Staff)
 admin.site.register(models.Stock)
-admin.site.register(models.Pharmaceutical)
+
+
+class PharmaceuticalAdminPanal(admin.ModelAdmin):
+    list_display = [
+        "id",
+        "doctor_name",
+    ]
+
+
+admin.site.register(models.Pharmaceutical, PharmaceuticalAdminPanal)
+
 admin.site.register(models.DailyExpense)
 admin.site.register(models.TakenPrice)
