@@ -5,15 +5,29 @@ from .models import (
     CategoryType,
     DailyExpense,
     DailyExpensePharmacy,
+    LabTest,
     Patient,
     Pharmaceutical,
     PharmaceuticalDrug,
     Staff,
     Stock,
     TakenPrice,
+    TestType,
 )
 
 User = get_user_model()
+
+
+class TestTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TestType
+        fields = ["id", "name", "date"]
+
+
+class LabTestSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LabTest
+        fields = ["id", "patient", "test_type", "price", "refer_to", "date"]
 
 
 # ---------------- Stock ---------------- #

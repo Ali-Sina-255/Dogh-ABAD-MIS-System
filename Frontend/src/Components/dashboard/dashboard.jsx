@@ -39,6 +39,7 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
+import TestSecon from "./TestSection.jsx";
 
 ChartJS.register(
   CategoryScale,
@@ -182,6 +183,11 @@ const Dashboard = () => {
           icon: <FaClipboardList className="text-2xl" />,
         },
         {
+          component: "TestSection",
+          label: "آزمایش ها",
+          icon: <FaClipboardList className="text-2xl" />,
+        },
+        {
           component: "TakenPrice",
           label: "پول‌های گرفته شده",
           icon: <FaClipboardList className="text-2xl" />,
@@ -302,6 +308,8 @@ const Dashboard = () => {
         return <DailyCopyPrescription />;
       case "DailyExpense":
         return <DailyExpense />;
+      case "TestSection":
+        return <TestSecon />;
       case "TakenPrice":
         return <TakenPrice />;
       case "StaffManagement":
@@ -410,7 +418,7 @@ const Dashboard = () => {
           <div className="flex-1 flex overflow-hidden">{renderComponent()}</div>
         </main>
       </div>
-    </div> 
+    </div>
   );
 };
 

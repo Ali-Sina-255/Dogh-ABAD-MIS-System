@@ -10,10 +10,10 @@ from tomlkit import document
 
 schema_view = get_schema_view(
     openapi.Info(
-        title="Tamadon MIS System Backend APIs",
+        title="Abolfazl OPD Hospital  System Backend APIs",
         default_version="v1",
         description=(
-            "This is the API documentation for Tamadon MIS System APIs.\n\n"
+            "This is the API documentation for Abolfazl OPD Hospital.\n\n"
             "Contacts:\n"
             "- Ali Sina Sultani: alisinasultani@gmail.com\n"
         ),
@@ -32,9 +32,7 @@ urlpatterns = [
     path("redoc/", schema_view.with_ui("redoc", cache_timeout=0), name="schema-redoc"),
     path("admin/", admin.site.urls),
     # path("api/auth/", include("djoser.urls.authtoken")),
-
     path("users/", include("apps.users.urls")),
-
     path("core/", include("apps.core.urls")),
 ]
 admin.site.site_header = "Tamadon Admin"

@@ -169,32 +169,28 @@ const Stocks = () => {
       )}
 
       {/* Stocks Table */}
+      {/* Stocks Table */}
       <div className="mt-6 p-6 bg-blue-50 shadow rounded-lg">
         <h3 className="text-2xl font-semibold mb-4 text-blue-700">
           All Stocks
         </h3>
+
         <table className="w-full border-collapse text-sm">
           <thead className="bg-blue-500 text-white">
             <tr>
-              {[
-                "Name",
-                "Price",
-                "Percentage",
-                "Amount",
-                "Total Price",
-                "Actions",
-              ].map((header, idx) => (
-                <th
-                  key={header}
-                  className={`px-4 py-2 border-b font-medium ${
-                    idx === 5 ? "text-center" : "text-right"
-                  }`}
-                >
-                  {header}
-                </th>
-              ))}
+              {["Name", "Price", "Percentage", "Amount", "Total Price"].map(
+                (header) => (
+                  <th
+                    key={header}
+                    className="px-4 py-2 border-b font-medium text-right"
+                  >
+                    {header}
+                  </th>
+                )
+              )}
             </tr>
           </thead>
+
           <tbody>
             {stocks.map((stock) => (
               <tr key={stock.id} className="hover:bg-gray-100">
@@ -208,35 +204,6 @@ const Stocks = () => {
                 </td>
                 <td className="px-4 py-2 border-b text-right">
                   {stock.total_price}
-                </td>
-                <td className="px-4 py-2 border-b text-center">
-                  {userRole === "Admin" && (
-                    <>
-                      <button
-                        onClick={() => {
-                          setEditingStock(stock);
-                          setUpdatedStock({
-                            name: stock.name,
-                            price: stock.price,
-                            percentage: stock.percentage,
-                            amount: stock.amount,
-                          });
-                        }}
-                        className="bg-yellow-500 text-white px-3 py-1 rounded hover:bg-yellow-600 transition duration-150 mr-2"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleDeleteStock(stock.id)}
-                        className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition duration-150"
-                      >
-                        Delete
-                      </button>
-                    </>
-                  )}
-                  {userRole === "reception" && (
-                    <span className="text-gray-500">View Only</span>
-                  )}
                 </td>
               </tr>
             ))}

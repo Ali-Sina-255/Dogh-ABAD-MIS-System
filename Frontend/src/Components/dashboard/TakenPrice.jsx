@@ -196,26 +196,23 @@ const TakenPrice = () => {
                 <td className="px-4 py-2 border-b">{price.name}</td>
                 <td className="px-4 py-2 border-b">{price.description}</td>
                 <td className="px-4 py-2 border-b">{price.amount}</td>
-                <td className="px-4 py-2 border-b">
-                  {new Date(price.date).toLocaleDateString()}
-                </td>
-                <td className="px-4 py-2 border-b space-x-2">
+                <td className="px-4 py-2 border-b">{price.date}</td>
+
+                {/* ACTION BUTTONS */}
+                <td className="px-4 py-2 border-b space-x-2 text-center">
                   <button
-                    onClick={() => handleEdit(price)}
+                    onClick={() =>
+                      showErrorToast("You are not allowed to update!")
+                    }
                     className="bg-gradient-to-r from-yellow-400 to-yellow-600 text-white px-4 py-1 rounded-md hover:bg-gradient-to-l mr-2"
                   >
                     Update
                   </button>
+
                   <button
-                    onClick={() => {
-                      if (
-                        window.confirm(
-                          "Are you sure? You won't be able to revert this!"
-                        )
-                      ) {
-                        handleDelete(price.id);
-                      }
-                    }}
+                    onClick={() =>
+                      showErrorToast("You are not allowed to delete!")
+                    }
                     className="bg-gradient-to-r from-red-500 to-red-700 text-white px-4 py-1 rounded-md hover:bg-gradient-to-l"
                   >
                     Delete

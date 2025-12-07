@@ -1,46 +1,52 @@
-import subprocess
 import os
+import subprocess
 import sys
 import time
 
-# Define paths for backend and frontend directories
-backend_dir = os.path.join(os.getcwd(), 'backend')
-frontend_dir = os.path.join(os.getcwd(), 'frontend')
+# Auto-detect base directory
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+backend_dir = os.path.join(BASE_DIR, "Backend")
+frontend_dir = os.path.join(BASE_DIR, "Frontend")
 
-# Define the commands to run
-backend_command = ["python", "manage.py", "runserver"]
-frontend_command = ["npm", "run", "dev"]
-
-def activate_virtualenv():
-    """Return the path to activate the virtual environment in the backend."""
-    return os.path.join(backend_dir, 'venv', 'Scripts', 'activate.bat')
 
 def run_backend():
-    """Activate the virtual environment and run the Django server."""
-    venv_activation = activate_virtualenv()
-    # Run the backend Django server using subprocess
-    command = f"call {venv_activation} && python manage.py runserver"
+    print("🚀 Starting Django Backend...")
+
+    # Detect virtual environment path
+    activate_script = os.path.join(backend_dir, "venv/bin/activate")
+
+    if os.path.exists(activate_script):
+        print("🔵 Virtual environment detected. Activating venv...")
+        command = "bash -c 'source venv/bin/activate && python3 manage.py runserver'"
+    else:
+        print("⚠️ No venv found! Running directly with python...")
+        command = "python3 manage.py runserver"
+
     return subprocess.Popen(command, shell=True, cwd=backend_dir)
 
+
 def run_frontend():
-    """Run the frontend development server."""
-    return subprocess.Popen(frontend_command, shell=True, cwd=frontend_dir)
+    print("🚀 Starting Frontend...")
+    command = "npm run dev"  # Vite uses "npm run dev"
+    return subprocess.Popen(command, shell=True, cwd=frontend_dir)
+
 
 def run_commands():
-    """Run both backend and frontend commands concurrently."""
-    # Start the backend server in a separate process
     backend_proc = run_backend()
+    time.sleep(3)
 
-    # Give the backend a moment to initialize
-    time.sleep(3)  # Adjust this if needed for a faster backend start
-
-    # Start the frontend server in a separate process
     frontend_proc = run_frontend()
 
-    # Wait for both processes to finish
+    print("\n==============================")
+    print("   ✔ Both servers started!   ")
+    print("==============================")
+    print("Backend running at: http://127.0.0.1:8000")
+    print("Frontend running at: http://localhost:5173")
+    print("==============================")
+
     backend_proc.wait()
     frontend_proc.wait()
 
+
 if __name__ == "__main__":
     run_commands()
-

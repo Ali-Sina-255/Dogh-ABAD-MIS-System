@@ -127,3 +127,24 @@ class DailyExpensePharmacy(models.Model):
     name = models.CharField(max_length=255)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     date = models.DateTimeField(auto_now_add=True)
+
+
+class TestType(models.Model):
+    name = models.CharField(max_length=500)
+    date = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class LabTest(models.Model):
+    patient = models.ForeignKey(Patient, on_delete=models.SET_NULL, null=True)
+    test_type = models.ForeignKey(TestType, on_delete=models.SET_NULL, null=True)
+    price = models.DecimalField(max_digits=12, decimal_places=2)
+    refer_to = models.CharField(max_length=300)
+    date = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        patient = self.patient.name if self.patient else "Unknown Patient"
+        test = self.test_type.name if self.test_type else "Unknown Test"
+        return f"{patient} - {test}"

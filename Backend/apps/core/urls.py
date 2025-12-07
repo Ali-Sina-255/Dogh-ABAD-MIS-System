@@ -6,6 +6,7 @@ from .views import (
     CategoryTypeListCreateView,
     DailyExpensePharmacyViewSet,
     DailyExpenseViewSet,
+    LabTestApiView,
     PatientDeleteView,
     PatientListView,
     PatientUpdateView,
@@ -15,6 +16,7 @@ from .views import (
     StaffViewSet,
     StockListView,
     TakenDailyExpenseViewSet,
+    TestTypeApiView,
 )
 
 router = DefaultRouter()
@@ -25,6 +27,8 @@ router.register("staff", StaffViewSet, basename="staff")
 urlpatterns = [
     path("", include(router.urls)),
     path("patients/", PatientListView.as_view(), name="patient-list"),
+    path("lab/", LabTestApiView.as_view(), name="lab"),
+    path("test-type/", TestTypeApiView.as_view(), name="lab"),
     path("patients/<int:pk>/", PatientDeleteView.as_view(), name="patient-delete"),
     path(
         "patients/<int:pk>/update/", PatientUpdateView.as_view(), name="patient-update"

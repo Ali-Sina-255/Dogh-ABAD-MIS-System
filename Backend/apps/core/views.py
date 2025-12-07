@@ -9,25 +9,53 @@ from .models import (
     CategoryType,
     DailyExpense,
     DailyExpensePharmacy,
+    LabTest,
     Patient,
     Pharmaceutical,
     Staff,
     Stock,
     TakenPrice,
+    TestType,
 )
-from .pagination import PharmaceuticalPagination
+from .pagination import PharmaceuticalPagination, TestTypePagination
 from .serializers import (
     CategoryTypeSerializer,
     DailyExpensePharmacySerializer,
     DailyExpenseSerializer,
+    LabTestSerializer,
     PatientSerializer,
     PharmaceuticalSerializer,
     StaffSerializer,
     StockSerializer,
     TakenPriceSerializer,
+    TestTypeSerializer,
 )
 
 logger = logging.getLogger(__name__)
+
+
+class TestTypeApiView(generics.ListCreateAPIView):
+    permission_classes = [AllowAny]
+    queryset = TestType.objects.all()
+    serializer_class = TestTypeSerializer
+    # pagination_class = TestTypePagination
+
+    def create(self, request, *args, **kwargs):
+        # Check if data is a list or a single dict
+        many = isinstance(request.data, list)
+        serializer = self.get_serializer(data=request.data, many=many)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(
+            serializer.data, status=status.HTTP_201_CREATED, headers=headers
+        )
+
+
+class LabTestApiView(generics.ListCreateAPIView):
+    permission_classes = [AllowAny]
+    queryset = LabTest.objects.all()
+    serializer_class = LabTestSerializer
 
 
 class PatientListView(APIView):
