@@ -14,18 +14,22 @@ import {
 import { MdDashboard } from "react-icons/md";
 import jwt_decode from "jwt-decode";
 
+// Import your components
 import RegisterPatients from "./RegisterPatients";
 import Categories from "./CategotySection.jsx";
 import Pharmacy from "./Pharmacy.jsx";
 import AddPharmacy from "./AddPharmacy";
 import ListPharmacy from "./ListPharmacy";
 import CopyPrescription from "./CopyPrescription";
+import DailyCopyPrescription from "./DailyCopyPrescription.jsx";
 import TakenPrice from "./TakenPrice.jsx";
 import DailyExpense from "./DailyExpense.jsx";
 import StaffManagement from "./stff/StaffManagement.jsx";
 import SalaryManagement from "./salary/Salary.jsx";
 import StocksList from "./StocksList.jsx";
-import DailyCopyPrescription from "./DailyCopyPrescription.jsx";
+import TestSecon from "./TestSection.jsx";
+// import ReportSummary from "./ReportSummary.jsx"; // Add your report component
+import ReportSummary from "./reports/ReportSummary.jsx";
 
 // Chart.js imports
 import { Line } from "react-chartjs-2";
@@ -39,7 +43,6 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
-import TestSecon from "./TestSection.jsx";
 
 ChartJS.register(
   CategoryScale,
@@ -66,6 +69,7 @@ const Dashboard = () => {
     Pharmacy: false,
     Expenses: false,
     Staff: false,
+    Reports: false,
   });
 
   const username = localStorage.getItem("username");
@@ -208,10 +212,26 @@ const Dashboard = () => {
           label: "معاشات",
           icon: <FaUsers className="text-2xl" />,
         },
+      ],
+    },
+    Reports: {
+      icon: <FaClipboardList className="text-3xl" />,
+      label: "گزارش‌ها",
+      subMenu: [
         {
-          component: "NormalStaff",
-          label: "کارمندان عادی",
-          icon: <FaUsers className="text-2xl" />,
+          component: "DailyReport",
+          label: "گزارش روزانه",
+          icon: <FaClipboardList className="text-2xl" />,
+        },
+        {
+          component: "WeeklyReport",
+          label: "گزارش هفتگی",
+          icon: <FaClipboardList className="text-2xl" />,
+        },
+        {
+          component: "MonthlyReport",
+          label: "گزارش ماهانه",
+          icon: <FaClipboardList className="text-2xl" />,
         },
       ],
     },
@@ -314,12 +334,13 @@ const Dashboard = () => {
         return <TakenPrice />;
       case "StaffManagement":
         return <StaffManagement />;
+      case "DailyReport":
+        return <ReportSummary reportType="daily" />;
+      case "WeeklyReport":
+        return <ReportSummary reportType="weekly" />;
+
       default:
-        return (
-          <div className="bg-white p-6 rounded-lg shadow-md flex-1 h-full">
-            <Line data={sampleChartData} options={chartOptions} />
-          </div>
-        );
+        return <ReportSummary reportType="monthly" />;
     }
   };
 

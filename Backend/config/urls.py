@@ -34,6 +34,7 @@ urlpatterns = [
     # path("api/auth/", include("djoser.urls.authtoken")),
     path("users/", include("apps.users.urls")),
     path("core/", include("apps.core.urls")),
+    path("reports/", include("apps.reports.urls")),
 ]
 admin.site.site_header = "Tamadon Admin"
 admin.site.site_title = "Tamando Admin Area."
