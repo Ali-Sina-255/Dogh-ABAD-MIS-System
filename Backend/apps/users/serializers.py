@@ -1,9 +1,16 @@
+from profile import Profile
+
+from django.contrib.auth import authenticate
+from django.contrib.auth.hashers import make_password
+from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
+from django.core.files.storage import default_storage
 from django.db import transaction
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
-from .models import User, UserProfile
+from .models import ChatMassage, Contact, User, UserProfile
 
 
 class CreateUserSerializer(serializers.ModelSerializer):
@@ -16,6 +23,7 @@ class CreateUserSerializer(serializers.ModelSerializer):
             "first_name",
             "last_name",
             "email",
+            
             "phone_number",
             "role",
             "password",
@@ -65,16 +73,11 @@ class UserSerializer(serializers.ModelSerializer):
             "role_display",
             "phone_number",
             "is_admin",
+            "is_free",
             "is_staff",
             "is_active",
             "is_superadmin",
         ]
-
-
-from django.contrib.auth.password_validation import validate_password
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-
-from .models import User, UserProfile
 
 
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
@@ -83,9 +86,10 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         token = super().get_token(user)
         token["email"] = user.email
         token["first_name"] = user.first_name
-        token["last_name"] = user.last_name
         token["role"] = (user.role,)
         token["is_admin"] = user.is_admin
+        token["is_active"] = user.is_active
+        token["phone_number"] = user.phone_number
         try:
             user_profile = UserProfile.objects.get(user=user)
             token["profile_pic"] = (
@@ -97,103 +101,136 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         return token
 
 
-from apps.users.models import UserProfile
-from django.core.exceptions import ValidationError
-from django.core.files.storage import default_storage
-from rest_framework import serializers
-
-from .models import UserProfile
-
-
-class UserProfileSerializer(serializers.ModelSerializer):
-
-    user_email = serializers.CharField(source="user.email", read_only=True)
-    profile_pic = serializers.ImageField(
-        required=False
-    )  # Make profile_pic optional for updates
-
-    class Meta:
-        model = UserProfile
-        fields = [
-            "id",
-            "user_email",
-            "profile_pic",
-            "address",
-            "created_at",
-            "updated_at",
-        ]
-
-    def update(self, instance, validated_data):
-
-        profile_pic = validated_data.get("profile_pic", None)
-        address = validated_data.get("address", None)
-
-        # Handle profile picture update if it exists in the request
-        if profile_pic:
-            # Optional: Add any additional validation for the profile picture here
-            # For example, check if the file size is too large
-            if profile_pic.size > 5 * 1024 * 1024:  # 5 MB limit for example
-                raise ValidationError(
-                    "Profile picture is too large. Maximum size is 5MB."
-                )
-            if instance.profile_pic and default_storage.exists(
-                instance.profile_pic.name
-            ):
-                default_storage.delete(instance.profile_pic.name)
-
-            # Update the profile_pic field
-            instance.profile_pic = profile_pic
-
-        # Handle address update if it exists in the request
-        if address:
-            instance.address = address
-
-        instance.save()
-        return instance
-
-
-from django.contrib.auth.hashers import make_password
-from django.core.exceptions import ValidationError
-from rest_framework import serializers
-
-from .models import User
-
-
 class UpdateUserSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True, required=False, allow_blank=True)
-    password_confirm = serializers.CharField(
-        write_only=True, required=False, allow_blank=True
-    )
+    confirm_password = serializers.CharField(write_only=True)
+    old_password = serializers.CharField(write_only=True)
 
     class Meta:
         model = User
         fields = [
-            "first_name",
-            "last_name",
             "email",
             "phone_number",
-            "role",
+            "old_password",
             "password",
-            "password_confirm",
+            "confirm_password",
         ]
 
     def validate(self, data):
-        # Ensure passwords match if both are provided
-        if "password" in data and data["password"] != data.get("password_confirm"):
-            raise ValidationError("Passwords must match.")
+        password = data.get("password")
+        confirm_password = data.get("confirm_password")
+        old_password = data.get("old_password")
+
+        # Get the current user
+        user = self.context["request"].user
+
+        # Check if old password is correct
+        if old_password:
+            user = authenticate(email=user.email, password=old_password)
+            if not user:
+                raise ValidationError(
+                    {"old_password": "The old password is incorrect."}
+                )
+
+        # Check if password and confirm password match
+        if password and confirm_password and password != confirm_password:
+            raise ValidationError(
+                {"confirm_password": "Password and Confirm password do not match."}
+            )
+
+        # Validate the new password (optional, you can add more validation rules here)
+        if password:
+            try:
+                validate_password(
+                    password, user
+                )  # This will validate the new password against the system's rules
+            except ValidationError as e:
+                raise ValidationError({"password": list(e.messages)})
+
         return data
 
     def update(self, instance, validated_data):
-        # Remove password_confirm field if it exists
-        validated_data.pop("password_confirm", None)
-
-        password = validated_data.pop("password", None)
+        password = validated_data.get("password", None)
         if password:
-            instance.set_password(password)
+            instance.set_password(password)  # Securely set the new password
+            validated_data.pop(
+                "confirm_password", None
+            )  # Don't save confirm_password in the instance
+            validated_data.pop(
+                "old_password", None
+            )  # Don't save old_password in the instance
 
-        # Update the rest of the fields
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
+        # Update email and phone_number
+        instance.email = validated_data.get("email", instance.email)
+        instance.phone_number = validated_data.get(
+            "phone_number", instance.phone_number
+        )
 
         instance.save()
         return instance
+
+
+class ProfilePicUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserProfile
+        fields = ["profile_pic"]
+
+    def update(self, instance, validated_data):
+        # Update only the profile_pic field
+        profile_pic = validated_data.get("profile_pic", None)
+        if profile_pic:
+            instance.profile_pic = profile_pic
+            instance.save()
+        return instance
+
+
+class PasswordChangeSerializer(serializers.Serializer):
+    otp = serializers.CharField(required=True)
+    uuidb64 = serializers.CharField(required=True)
+    password = serializers.CharField(required=True)
+
+
+class ProfileSerializer(serializers.ModelSerializer):
+    full_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = UserProfile  # Your model name
+        fields = [
+            "id",
+            "user",
+            "full_name",
+            "profile_pic",
+            "created_at",
+            "updated_at",
+        ]
+
+    def get_full_name(self, obj):
+        return f"{obj.user.first_name} {obj.user.last_name}"
+
+
+class MassageSerializer(serializers.ModelSerializer):
+    sender_profile = ProfileSerializer(read_only=True)
+    receiver_profile = ProfileSerializer(read_only=True)
+
+    class Meta:
+        model = ChatMassage
+        fields = [
+            "id",
+            "sender",
+            "sender_profile",
+            "receiver",
+            "receiver_profile",
+            "message",
+            "is_read",
+            "date",
+        ]
+
+
+class ContactSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Contact
+        fields = ['id', 'email', 'name', 'content']
+        
+class UserFreeStatus(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['is_free']

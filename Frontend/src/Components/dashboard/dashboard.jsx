@@ -1,443 +1,544 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import jwtDecode from "jwt-decode";
+import axios from "axios";
+
+// Icons
+import { MdPermDeviceInformation } from "react-icons/md";
 import {
-  FaPlusCircle,
-  FaBars,
   FaUsers,
-  FaClipboardList,
+  FaMoneyBillWave,
+  FaChartBar,
   FaSignOutAlt,
   FaChevronDown,
-  FaServicestack,
-  FaMoon,
-  FaSun,
+  FaBlog,
+  FaSlidersH,
+  FaBars,
 } from "react-icons/fa";
-import { MdDashboard } from "react-icons/md";
-import jwt_decode from "jwt-decode";
+import { CgProfile } from "react-icons/cg";
 
-// Import your components
-import RegisterPatients from "./RegisterPatients";
-import Categories from "./CategotySection.jsx";
-import Pharmacy from "./Pharmacy.jsx";
-import AddPharmacy from "./AddPharmacy";
-import ListPharmacy from "./ListPharmacy";
-import CopyPrescription from "./CopyPrescription";
-import DailyCopyPrescription from "./DailyCopyPrescription.jsx";
-import TakenPrice from "./TakenPrice.jsx";
-import DailyExpense from "./DailyExpense.jsx";
-import StaffManagement from "./stff/StaffManagement.jsx";
-import SalaryManagement from "./salary/Salary.jsx";
-import StocksList from "./StocksList.jsx";
-import TestSecon from "./TestSection.jsx";
-// import ReportSummary from "./ReportSummary.jsx"; // Add your report component
-import ReportSummary from "./reports/ReportSummary.jsx";
+// Components
+import UserManagement from "./Admin/UserManagement";
+import TeacherLevelManagement from "./Admin/TeacherLevelManagement.jsx";
+import WebBlog from "./Admin/WebBlog";
+import Slider from "./Admin/Slider";
 
-// Chart.js imports
-import { Line } from "react-chartjs-2";
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-} from "chart.js";
+import DailyExpense from "./Finance/DailyExpense.jsx";
 
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend
-);
+import Payrolls from "./Finance/Payrolls.jsx";
+import AddPharmacy from "./Pharmacy/AddPharmacy.jsx";
+import Prescription from "./Pharmacy/Prescription.jsx";
+import Fine from "./Finance/Fine.jsx";
+import WellcomePage from "./wellcomePage.jsx";
+import MonthlyEnrollManagement from "../courses/enrollments/MonthlyEnrolleManagement.jsx";
+import MonthlyDashboard from "./Admin/MonthlyDashboard.jsx";
+import LabManager from "./Finance/LabManager.jsx";
+
+const BASE_URL = import.meta.env.VITE_BASE_URL;
 
 const Dashboard = () => {
-  const [role, setRole] = useState(localStorage.getItem("role"));
-  const [darkMode, setDarkMode] = useState(false);
-  const [activeComponent, setActiveComponent] = useState("DashboardHome");
-  const [isSidebarExpanded, setIsSidebarExpanded] = useState(true);
-  const [loading, setLoading] = useState(true);
-  const [userData, setUserData] = useState(true);
-  const [activeSubMenu, setActiveSubMenu] = useState(null);
-
-  const [subMenuStates, setSubMenuStates] = useState({
-    Categories: false,
-    Patients: false,
-    Pharmacy: false,
-    Expenses: false,
-    Staff: false,
-    Reports: false,
-  });
-
-  const username = localStorage.getItem("username");
   const navigate = useNavigate();
 
-  const isTokenExpired = (token) => {
-    try {
-      const decodedToken = jwt_decode(token);
-      const currentTime = Date.now() / 1000;
-      return decodedToken.exp < currentTime;
-    } catch (error) {
-      return true;
-    }
-  };
+  // ---------------- States ----------------
+  const [role, setRole] = useState(() => {
+    const storedRole = localStorage.getItem("role");
+    return storedRole ? [parseInt(storedRole)] : [0];
+  });
+  const [activeComponent, setActiveComponent] = useState("MonthlyDashboard");
+  const [isSideOpen, setIsSideOpen] = useState(false);
+  const [userImage, setUserImage] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [isProfilePopupOpen, setIsProfilePopupOpen] = useState(false);
+  const [isWebsiteManagementOpen, setIsWebsiteManagementOpen] = useState(false);
+  const [isFinanceManagementOpen, setIsFinanceManagementOpen] = useState(false);
+  const [isMonthlyManagement, setIsMonthlyManagement] = useState(false);
+  const [isStaffManagement, setIsStaffManagement] = useState(false);
+  const [isPharmacy, setIsPharmacy] = useState(false);
+  const [isDiagnosis, setIsDiagnosis] = useState(false);
+  const [user, setUser] = useState({});
+  const [showEnrollmentModal, setShowEnrollmentModal] = useState(false);
+  const [classes, setClasses] = useState([]);
 
+  // ---------------- Logout ----------------
   const handleLogout = () => {
-    localStorage.removeItem("auth_token");
-    localStorage.removeItem("role");
+    localStorage.clear();
     navigate("/login");
   };
 
+  const checkSessionExpiration = () => {
+    const loginTimestamp = localStorage.getItem("login_timestamp");
+    if (loginTimestamp) {
+      const elapsedTime = new Date().getTime() - parseInt(loginTimestamp, 10);
+      if (elapsedTime >= 43200000) handleLogout();
+    }
+  };
+
   useEffect(() => {
-    const fetchUserProfile = async () => {
-      const token = localStorage.getItem("auth_token");
-      if (!token || isTokenExpired(token)) {
-        handleLogout();
-        return;
-      }
+    checkSessionExpiration();
+  }, [loading, activeComponent, isProfilePopupOpen]);
 
-      try {
-        const response = await fetch("http://127.0.0.1:8000/users/profiles/", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+  // ---------------- Fetch user profile ----------------
+  const fetchUserProfile = async () => {
+    const token = localStorage.getItem("auth_token");
+    if (!token) return handleLogout();
 
-        if (response.ok) {
-          const data = await response.json();
-          setUserData(data);
-        }
-      } catch (error) {
-        console.error("Error fetching user profile:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
+    axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+    const email = localStorage.getItem("email");
 
+    try {
+      const response = await axios.get(`${BASE_URL}/users/profile/${email}/`);
+      if (response.status === 200) setUserImage(response.data.profile_pic);
+      const decoded = jwtDecode(token);
+      setUser(decoded);
+    } catch (err) {
+      console.error("Error fetching profile:", err);
+      if (err.response?.status === 401) handleLogout();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchUserProfile();
+  }, [isProfilePopupOpen]);
+
+  // ---------------- Fetch Classes ----------------
+  const fetchClasses = async () => {
+    try {
+      const res = await axios.get(`${BASE_URL}/courses/classes/`);
+      setClasses(res.data || []);
+    } catch (err) {
+      console.error("Error fetching classes:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchClasses();
   }, []);
 
-  const menuItems = {
-    Dashboard: {
-      component: "DashboardHome",
-      icon: <MdDashboard className="text-3xl" />,
-      label: "داشبورد",
+  // ---------------- Sidebar items ----------------
+  const websiteManagementItems = [
+    {
+      component: "WebBlog",
+      label: "مدیریت وبلاگ",
+      icon: <FaBlog />,
+      element: <WebBlog />,
     },
-    Categories: {
-      icon: <FaUsers className="text-3xl" />,
-      label: "بخش‌ها",
-      subMenu: [
-        {
-          component: "Categories",
-          label: "نمایش بخش‌ها",
-          icon: <FaUsers className="text-2xl" />,
-        },
-      ],
+    {
+      component: "Slider",
+      label: "بخش بیماران",
+      icon: <FaSlidersH />,
+      element: <Slider />,
     },
-    Patients: {
-      icon: <FaUsers className="text-3xl" />,
-      label: "بیماران",
-      subMenu: [
-        {
-          component: "PatientsList",
-          label: "لیست بیماران",
-          icon: <FaUsers className="text-2xl" />,
-        },
-        {
-          component: "RegisterPatient",
-          label: "ثبت بیمار جدید",
-          icon: <FaPlusCircle className="text-2xl" />,
-        },
-      ],
-    },
-    Pharmacy: {
-      icon: <FaServicestack className="text-3xl" />,
+  ];
+
+  const Pharmacy = [
+    {
+      component: "AddPharmacy",
       label: "داروخانه",
-      subMenu: [
-        {
-          component: "AddPharmacy",
-          label: "افزودن دارو",
-          icon: <FaPlusCircle className="text-2xl" />,
-        },
-        {
-          component: "ListPharmacy",
-          label: "لیست داروها",
-          icon: <FaClipboardList className="text-2xl" />,
-        },
-        {
-          component: "CopyPrescription",
-          label: "نسخه‌ها",
-          icon: <FaClipboardList className="text-2xl" />,
-        },
-        {
-          component: "DailyCopyPrescription",
-          label: "اضافه نسخه جدید",
-          icon: <FaClipboardList className="text-2xl" />,
-        },
-      ],
+      icon: <FaChartBar />,
+      element: <AddPharmacy />,
     },
-    Expenses: {
-      icon: <FaClipboardList className="text-3xl" />,
-      label: "هزینه‌ها",
-      subMenu: [
-        {
-          component: "DailyExpense",
-          label: "درآمد روزانه",
-          icon: <FaClipboardList className="text-2xl" />,
-        },
-        {
-          component: "TestSection",
-          label: "آزمایش ها",
-          icon: <FaClipboardList className="text-2xl" />,
-        },
-        {
-          component: "TakenPrice",
-          label: "پول‌های گرفته شده",
-          icon: <FaClipboardList className="text-2xl" />,
-        },
-      ],
+    {
+      component: "Prescription",
+      label: "نسخه‌ها",
+      icon: <FaChartBar />,
+      element: <Prescription />,
     },
-    Staff: {
-      icon: <FaUsers className="text-3xl" />,
+  ];
+
+  const Diagnosis = [
+    {
+      component: "Fine",
+      label: "تشخیص",
+      icon: <FaMoneyBillWave />,
+      element: <Fine />,
+    },
+    {
+      component: "LabManager",
+      label: "مدیریت تشخیص",
+      icon: <FaMoneyBillWave />,
+      element: <LabManager />,
+    },
+  ];
+
+  const financeManagementItems = [
+    {
+      component: "DailyExpense",
+      label: "هزینه روزانه",
+      icon: <FaMoneyBillWave />,
+      element: <DailyExpense />,
+    },
+    {
+      component: "Payrolls",
+      label: "حقوق و دستمزد",
+      icon: <FaChartBar />,
+      element: <Payrolls />,
+    },
+  ];
+
+  const monthlyManagementItems = [
+    {
+      component: "MonthlyDashboard",
+      label: "داشبورد ماهانه",
+      icon: <FaMoneyBillWave />,
+      element: <MonthlyDashboard />,
+    },
+  ];
+
+  const staffManagement = [
+    {
+      component: "UserManagement",
       label: "کارمندان",
-      subMenu: [
-        {
-          component: "StaffManagement",
-          label: "مدیریت کارمندان",
-          icon: <FaUsers className="text-2xl" />,
-        },
-        {
-          component: "SalaryManagement",
-          label: "معاشات",
-          icon: <FaUsers className="text-2xl" />,
-        },
-      ],
+      icon: <FaUsers />,
+      element: <UserManagement />,
     },
-    Reports: {
-      icon: <FaClipboardList className="text-3xl" />,
-      label: "گزارش‌ها",
-      subMenu: [
-        {
-          component: "DailyReport",
-          label: "گزارش روزانه",
-          icon: <FaClipboardList className="text-2xl" />,
-        },
-        {
-          component: "WeeklyReport",
-          label: "گزارش هفتگی",
-          icon: <FaClipboardList className="text-2xl" />,
-        },
-        {
-          component: "MonthlyReport",
-          label: "گزارش ماهانه",
-          icon: <FaClipboardList className="text-2xl" />,
-        },
-      ],
+    {
+      component: "TeacherLevelManagement",
+      label: "سطح کارکنان",
+      icon: <FaUsers />,
+      element: <TeacherLevelManagement />,
     },
-    Logout: {
-      icon: <FaSignOutAlt className="text-3xl" />,
-      label: "خروج",
-    },
-  };
+  ];
 
-  const handleMenuClick = (item, subItem = null) => {
-    if (item === "Logout") {
-      handleLogout();
-    } else if (subItem) {
-      setActiveComponent(subItem.component);
-      setActiveSubMenu(subItem.label);
-    } else {
-      setSubMenuStates((prev) => ({
-        ...prev,
-        [item]: !prev[item],
-      }));
-    }
-  };
-
-  const sampleChartData = {
-    labels: [
-      "دوشنبه",
-      "سه‌شنبه",
-      "چهارشنبه",
-      "پنج‌شنبه",
-      "جمعه",
-      "شنبه",
-      "یکشنبه",
-    ],
-    datasets: [
-      {
-        label: "بیماران جدید",
-        data: [12, 19, 8, 14, 20, 16, 25],
-        borderColor: "rgba(34,197,94,1)",
-        backgroundColor: "rgba(34,197,94,0.2)",
-        tension: 0.4,
-        fill: true,
-      },
-      {
-        label: "درآمد ($)",
-        data: [200, 450, 300, 500, 650, 400, 700],
-        borderColor: "rgba(59,130,246,1)",
-        backgroundColor: "rgba(59,130,246,0.2)",
-        tension: 0.4,
-        fill: true,
-      },
-      {
-        label: "هزینه‌ها ($)",
-        data: [150, 300, 200, 400, 350, 300, 500],
-        borderColor: "rgba(239,68,68,1)",
-        backgroundColor: "rgba(239,68,68,0.2)",
-        tension: 0.4,
-        fill: true,
-      },
-    ],
-  };
-
-  const chartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: { position: "top" },
-      title: { display: true, text: "نمای کلی هفته" },
-    },
-    scales: {
-      x: { ticks: { autoSkip: false } },
-      y: { beginAtZero: true },
-    },
-  };
-
+  // ---------------- Render main component ----------------
   const renderComponent = () => {
-    switch (activeComponent) {
-      case "PatientsList":
-        return <ListPharmacy />;
-      case "RegisterPatient":
-        return <RegisterPatients />;
-      case "Categories":
-        return <Categories />;
-      case "SalaryManagement":
-        return <SalaryManagement />;
-      case "Pharmacy":
-        return <Pharmacy />;
-      case "AddPharmacy":
-        return <AddPharmacy />;
-      case "ListPharmacy":
-        return <StocksList />;
-      case "CopyPrescription":
-        return <CopyPrescription />;
-      case "DailyCopyPrescription":
-        return <DailyCopyPrescription />;
-      case "DailyExpense":
-        return <DailyExpense />;
-      case "TestSection":
-        return <TestSecon />;
-      case "TakenPrice":
-        return <TakenPrice />;
-      case "StaffManagement":
-        return <StaffManagement />;
-      case "DailyReport":
-        return <ReportSummary reportType="daily" />;
-      case "WeeklyReport":
-        return <ReportSummary reportType="weekly" />;
-
-      default:
-        return <ReportSummary reportType="monthly" />;
-    }
+    const allItems = [
+      ...websiteManagementItems,
+      ...Pharmacy,
+      ...Diagnosis,
+      ...financeManagementItems,
+      ...monthlyManagementItems,
+      ...staffManagement,
+    ];
+    const found = allItems.find((item) => item.component === activeComponent);
+    return found && found.element ? found.element : <WellcomePage />;
   };
 
-  if (loading) return <div>در حال بارگذاری...</div>;
+  // ---------------- Loader ----------------
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="loader mr-3"></div>
+        <span className="text-xl font-semibold">در حال بارگذاری...</span>
+        <style jsx>{`
+          .loader {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #16a34a;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+          }
+          @keyframes spin {
+            to {
+              transform: rotate(360deg);
+            }
+          }
+        `}</style>
+      </div>
+    );
+  }
 
   return (
-    <div
-      dir="rtl"
-      className={`${
-        darkMode ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-800"
-      } min-h-screen flex overflow-hidden`}
-    >
-      {/* Sidebar */}
-      <aside
-        className={`${
-          isSidebarExpanded ? "w-64" : "w-20"
-        } fixed top-0 right-0 h-full bg-blue-600 text-white p-6 space-y-6 transition-all duration-300`}
-      >
-        <button
-          onClick={() => setIsSidebarExpanded((p) => !p)}
-          className="absolute top-4 left-4 text-3xl"
-        >
-          <FaBars />
-        </button>
-
-        <ul className="mt-16">
-          {Object.keys(menuItems).map((item) => {
-            const entry = menuItems[item];
-            return (
-              <li key={item}>
-                <button
-                  onClick={() => handleMenuClick(item)}
-                  className="flex items-center gap-4 p-3 hover:bg-blue-700 rounded w-full"
-                >
-                  <span>{entry.icon}</span>
-                  <span className={`${!isSidebarExpanded ? "hidden" : ""}`}>
-                    {entry.label}
-                  </span>
-                  {entry.subMenu && (
-                    <FaChevronDown
-                      className={`mr-auto transition-transform duration-200 ${
-                        subMenuStates[item] ? "rotate-180" : ""
-                      }`}
-                    />
-                  )}
-                </button>
-
-                {entry.subMenu && subMenuStates[item] && (
-                  <ul
-                    className={`mt-2 space-y-2 ${
-                      !isSidebarExpanded ? "hidden" : ""
-                    } flex flex-col items-center`}
-                  >
-                    {entry.subMenu.map((subItem, index) => (
-                      <li key={index}>
-                        <button
-                          onClick={() => handleMenuClick(item, subItem)}
-                          className={`flex items-center justify-center gap-3 p-3 rounded w-full max-w-[200px] hover:bg-blue-500 ${
-                            activeSubMenu === subItem.label ? "bg-blue-700" : ""
-                          }`}
-                        >
-                          <span className="text-2xl">{subItem.icon}</span>
-                          <span>{subItem.label}</span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      </aside>
-
-      {/* Content */}
-      <div
-        className={`flex-1 mr-64 ${
-          !isSidebarExpanded ? "mr-20" : ""
-        } flex flex-col`}
-      >
-        {/* Topbar */}
-        <nav className="fixed top-0 right-64 w-full max-w-full md:max-w-[calc(100%-16rem)] bg-white shadow-md flex justify-between items-center p-4 z-10 transition-all duration-300">
-          <button onClick={() => setDarkMode((p) => !p)} className="text-2xl">
-            {darkMode ? (
-              <FaSun className="text-yellow-400" />
+    <div className="bg-gray-100 text-gray-800 h-screen w-full flex flex-col">
+      {/* Navbar */}
+      <nav className="flex fixed right-0 left-0 bg-green top-0 justify-between items-center p-4 z-10">
+        <div className="lg:flex items-center hidden gap-x-5">
+          <Link to="/" className="text-white font-bold text-2xl">
+            بیمارستان تخصصی آقای ابوالفضل
+          </Link>
+        </div>
+        <div className="flex items-center gap-x-4">
+          <p className="font-serif text-2xl text-white font-bold">
+            {localStorage.getItem("username")}
+          </p>
+          <div
+            className="flex items-center cursor-pointer"
+            onClick={() => setIsProfilePopupOpen(!isProfilePopupOpen)}
+          >
+            {userImage ? (
+              <img
+                src={userImage}
+                alt="User"
+                className="w-10 h-10 rounded-full border-2"
+              />
             ) : (
-              <FaMoon className="text-blue-600" />
+              <CgProfile
+                size={28}
+                className="text-gray-700 hover:text-green-500"
+              />
             )}
-          </button>
-          <div>خوش آمدید! {username}</div>
-        </nav>
+          </div>
+        </div>
+      </nav>
+
+      {/* Sidebar + Main */}
+      <div className="flex flex-1 pt-[74px] overflow-hidden">
+        <aside
+          className={`bg-white text-gray-900 py-3 ${
+            isSideOpen ? "w-[60%] md:w-[35%] z-20" : "w-[60px] lg:w-[250px]"
+          } lg:flex flex-col fixed top-0 h-screen px-5 md:relative transition-all duration-300`}
+        >
+          <div className="w-full space-y-1 overflow-hidden">
+            <button
+              onClick={() => setIsSideOpen(!isSideOpen)}
+              className="lg:hidden text-2xl focus:outline-none"
+            >
+              <FaBars />
+            </button>
+
+            {/* Website Management */}
+            {/* مدیریت وب‌سایت */}
+            <li className="flex flex-col space-y-1">
+              <div
+                className="flex items-center justify-between font-bold pr-2 py-2 hover:bg-green hover:text-white rounded cursor-pointer"
+                onClick={() =>
+                  setIsWebsiteManagementOpen(!isWebsiteManagementOpen)
+                }
+              >
+                <div className="flex items-center font-bold gap-x-4">
+                  <span className="text-xl">
+                    <FaUsers />
+                  </span>
+                  <span className="ml-5 text-md font-bold flex items-center">
+                    مدیریت وب‌سایت
+                  </span>
+                </div>
+                <FaChevronDown
+                  className={`transition-transform duration-300 ${isWebsiteManagementOpen ? "rotate-180" : ""}`}
+                />
+              </div>
+              {isWebsiteManagementOpen &&
+                websiteManagementItems.map((item) => (
+                  <div
+                    key={item.component}
+                    className={`flex items-center gap-x-3 py-2 px-5 font-bold hover:bg-green hover:text-white rounded cursor-pointer ${
+                      activeComponent === item.component
+                        ? "bg-green text-white"
+                        : ""
+                    }`}
+                    onClick={() => {
+                      setActiveComponent(item.component);
+                      setIsSideOpen(false);
+                    }}
+                  >
+                    <span className="text-xl">{item.icon}</span>
+                    <span className="ml-4 text-md">{item.label}</span>
+                  </div>
+                ))}
+            </li>
+
+            {/* مدیریت آزمایشگاه */}
+            <li className="flex flex-col space-y-1">
+              <div
+                className="flex items-center justify-between font-bold pr-2 py-2 hover:bg-green hover:text-white rounded cursor-pointer"
+                onClick={() => setIsDiagnosis(!isDiagnosis)}
+              >
+                <div className="flex items-center font-bold gap-x-4">
+                  <span className="text-xl">
+                    <FaUsers />
+                  </span>
+                  <span className="ml-5 text-md font-bold flex items-center">
+                    مدیریت آزمایشگاه
+                  </span>
+                </div>
+                <FaChevronDown
+                  className={`transition-transform duration-300 ${isDiagnosis ? "rotate-180" : ""}`}
+                />
+              </div>
+              {isDiagnosis &&
+                Diagnosis.map((item) => (
+                  <div
+                    key={item.component}
+                    className={`flex items-center gap-x-3 py-2 px-5 font-bold hover:bg-green hover:text-white rounded cursor-pointer ${
+                      activeComponent === item.component
+                        ? "bg-green text-white"
+                        : ""
+                    }`}
+                    onClick={() => {
+                      setActiveComponent(item.component);
+                      setIsSideOpen(false);
+                    }}
+                  >
+                    <span className="text-xl">{item.icon}</span>
+                    <span className="ml-4 text-md">{item.label}</span>
+                  </div>
+                ))}
+            </li>
+
+            {/* داروخانه */}
+            <li className="flex flex-col space-y-1">
+              <div
+                className="flex items-center justify-between font-bold pr-2 py-2 hover:bg-green hover:text-white rounded cursor-pointer"
+                onClick={() => setIsPharmacy(!isPharmacy)}
+              >
+                <div className="flex items-center font-bold gap-x-4">
+                  <span className="text-xl">
+                    <FaUsers />
+                  </span>
+                  <span className="ml-5 text-md font-bold flex items-center">
+                    داروخانه
+                  </span>
+                </div>
+                <FaChevronDown
+                  className={`transition-transform duration-300 ${isPharmacy ? "rotate-180" : ""}`}
+                />
+              </div>
+              {isPharmacy &&
+                Pharmacy.map((item) => (
+                  <div
+                    key={item.component}
+                    className={`flex items-center gap-x-3 py-2 px-5 font-bold hover:bg-green hover:text-white rounded cursor-pointer ${
+                      activeComponent === item.component
+                        ? "bg-green text-white"
+                        : ""
+                    }`}
+                    onClick={() => {
+                      setActiveComponent(item.component);
+                      setIsSideOpen(false);
+                    }}
+                  >
+                    <span className="text-xl">{item.icon}</span>
+                    <span className="ml-4 text-md">{item.label}</span>
+                  </div>
+                ))}
+            </li>
+
+            {/* مدیریت مالی */}
+            <li className="flex flex-col space-y-1 mt-4">
+              <div
+                className="flex items-center justify-between font-bold pr-2 py-2 hover:bg-green hover:text-white rounded cursor-pointer"
+                onClick={() =>
+                  setIsFinanceManagementOpen(!isFinanceManagementOpen)
+                }
+              >
+                <div className="flex items-center font-bold gap-x-4">
+                  <span className="text-xl">
+                    <FaMoneyBillWave />
+                  </span>
+                  <span className="ml-5 text-md font-bold flex items-center">
+                    مدیریت مالی
+                  </span>
+                </div>
+                <FaChevronDown
+                  className={`transition-transform duration-300 ${isFinanceManagementOpen ? "rotate-180" : ""}`}
+                />
+              </div>
+              {isFinanceManagementOpen &&
+                financeManagementItems.map((item) => (
+                  <div
+                    key={item.component}
+                    className={`flex items-center gap-x-3 py-2 px-5 font-bold hover:bg-green hover:text-white rounded cursor-pointer ${
+                      activeComponent === item.component
+                        ? "bg-green text-white"
+                        : ""
+                    }`}
+                    onClick={() => {
+                      setActiveComponent(item.component);
+                      setIsSideOpen(false);
+                    }}
+                  >
+                    <span className="text-xl">{item.icon}</span>
+                    <span className="ml-4 text-md">{item.label}</span>
+                  </div>
+                ))}
+            </li>
+
+            {/* مدیریت ماهانه */}
+            <li className="flex flex-col space-y-1 mt-4">
+              <div
+                className="flex items-center justify-between font-bold pr-2 py-2 hover:bg-green hover:text-white rounded cursor-pointer"
+                onClick={() => setIsMonthlyManagement(!isMonthlyManagement)}
+              >
+                <div className="flex items-center font-bold gap-x-4">
+                  <span className="text-xl">
+                    <FaMoneyBillWave />
+                  </span>
+                  <span className="ml-5 text-md font-bold flex items-center">
+                    مدیریت ماهانه
+                  </span>
+                </div>
+                <FaChevronDown
+                  className={`transition-transform duration-300 ${isMonthlyManagement ? "rotate-180" : ""}`}
+                />
+              </div>
+              {isMonthlyManagement &&
+                monthlyManagementItems.map((item) => (
+                  <div
+                    key={item.component}
+                    className="flex items-center gap-x-3 py-2 px-5 font-bold hover:bg-green hover:text-white rounded cursor-pointer"
+                    onClick={() => {
+                      if (item.onClick) item.onClick();
+                      else setActiveComponent(item.component);
+                      setIsSideOpen(false);
+                    }}
+                  >
+                    <span className="text-xl">{item.icon}</span>
+                    <span className="ml-4 text-md">{item.label}</span>
+                  </div>
+                ))}
+            </li>
+
+            {/* مدیریت کارکنان */}
+            <li className="flex flex-col space-y-1 mt-4">
+              <div
+                className="flex items-center justify-between font-bold pr-2 py-2 hover:bg-green hover:text-white rounded cursor-pointer"
+                onClick={() => setIsStaffManagement(!isStaffManagement)}
+              >
+                <div className="flex items-center font-bold gap-x-4">
+                  <span className="text-xl">
+                    <FaUsers />
+                  </span>
+                  <span className="ml-5 text-md font-bold flex items-center">
+                    مدیریت کارکنان
+                  </span>
+                </div>
+                <FaChevronDown
+                  className={`transition-transform duration-300 ${isStaffManagement ? "rotate-180" : ""}`}
+                />
+              </div>
+              {isStaffManagement &&
+                staffManagement.map((item) => (
+                  <div
+                    key={item.component}
+                    className="flex items-center gap-x-3 py-2 px-5 font-bold hover:bg-green hover:text-white rounded cursor-pointer"
+                    onClick={() => {
+                      if (item.onClick) item.onClick();
+                      else setActiveComponent(item.component);
+                      setIsSideOpen(false);
+                    }}
+                  >
+                    <span className="text-xl">{item.icon}</span>
+                    <span className="ml-4 text-md">{item.label}</span>
+                  </div>
+                ))}
+            </li>
+
+            {/* خروج */}
+            <li className="mt-4">
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-x-3 py-2 px-3 font-bold hover:bg-green hover:text-white rounded w-full"
+              >
+                <FaSignOutAlt className="text-xl" /> <span>خروج</span>
+              </button>
+            </li>
+          </div>
+        </aside>
 
         {/* Main content */}
-        <main className="mt-20 p-6 space-y-6 flex-1 flex flex-col overflow-hidden">
-          {/* Render component */}
-          <div className="flex-1 flex overflow-hidden">{renderComponent()}</div>
-        </main>
+        <main className="flex-1 overflow-auto">{renderComponent()}</main>
+
+        {/* Enrollment Modal */}
+        {showEnrollmentModal && (
+          <MonthlyEnrollManagement
+            show={showEnrollmentModal}
+            onClose={() => setShowEnrollmentModal(false)}
+            refreshEnrollments={fetchClasses}
+            classesList={classes}
+          />
+        )}
       </div>
     </div>
   );

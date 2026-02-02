@@ -1,33 +1,18 @@
 import logging
 
-from rest_framework import generics, status, viewsets
+from rest_framework import generics, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import (
-    CategoryType,
-    DailyExpense,
-    DailyExpensePharmacy,
-    LabTest,
-    Patient,
-    Pharmaceutical,
-    Staff,
-    Stock,
-    TakenPrice,
-    TestType,
-)
-from .pagination import PharmaceuticalPagination, TestTypePagination
+from .models import CategoryType, LabTest, Patient, Pharmaceutical, Stock, TestType
+from .pagination import PharmaceuticalPagination
 from .serializers import (
     CategoryTypeSerializer,
-    DailyExpensePharmacySerializer,
-    DailyExpenseSerializer,
     LabTestSerializer,
     PatientSerializer,
     PharmaceuticalSerializer,
-    StaffSerializer,
     StockSerializer,
-    TakenPriceSerializer,
     TestTypeSerializer,
 )
 
@@ -51,8 +36,37 @@ class TestTypeApiView(generics.ListCreateAPIView):
             serializer.data, status=status.HTTP_201_CREATED, headers=headers
         )
 
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        month = self.request.query_params.get("jalali_month")
+        if month:
+            queryset = queryset.filter(jalali_month=month)
+        return queryset
+
+
+class TestTypeDetailApiView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [AllowAny]
+    queryset = TestType.objects.all()
+    serializer_class = TestTypeSerializer
+
 
 class LabTestApiView(generics.ListCreateAPIView):
+    permission_classes = [AllowAny]
+    queryset = LabTest.objects.all()
+    serializer_class = LabTestSerializer
+
+    def get_queryset(self):
+        queryset = LabTest.objects.all()
+        month = self.request.query_params.get("jalali_month")
+        test_type = self.request.query_params.get("test_type")  # <-- new
+        if month:
+            queryset = queryset.filter(jalali_month=month)
+        if test_type:
+            queryset = queryset.filter(test_type=test_type)
+        return queryset
+
+
+class LabTestDetailApiView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [AllowAny]
     queryset = LabTest.objects.all()
     serializer_class = LabTestSerializer
@@ -242,6 +256,13 @@ class PharmaceuticalListCreateView(generics.ListCreateAPIView):
     queryset = Pharmaceutical.objects.all()
     serializer_class = PharmaceuticalSerializer
 
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        month = self.request.query_params.get("jalali_month")
+        if month:
+            queryset = queryset.filter(jalali_month=month)
+        return queryset
+
 
 class PharmaceuticalListView(generics.ListAPIView):
     """
@@ -260,32 +281,4 @@ class PharmaceuticalDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = PharmaceuticalSerializer
 
 
-class DailyExpenseViewSet(viewsets.ModelViewSet):
-    permission_classes = [AllowAny]
-
-    queryset = DailyExpense.objects.all()
-    serializer_class = DailyExpenseSerializer
-
-
-class TakenDailyExpenseViewSet(viewsets.ModelViewSet):
-    permission_classes = [AllowAny]
-    queryset = TakenPrice.objects.all()
-    serializer_class = TakenPriceSerializer
-
-
-class StaffViewSet(viewsets.ModelViewSet):
-    queryset = Staff.objects.all()
-    serializer_class = StaffSerializer
-
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-class DailyExpensePharmacyViewSet(viewsets.ModelViewSet):
-    permission_classes = [AllowAny]
-    queryset = DailyExpensePharmacy.objects.all()
-    serializer_class = DailyExpensePharmacySerializer
+# ---------------- Dashboard Summary ----------------

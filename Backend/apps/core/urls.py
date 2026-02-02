@@ -1,34 +1,31 @@
-from django.urls import include, path
-from rest_framework.routers import DefaultRouter
+from django.urls import path
 
 from .views import (
     CategoryTypeDetailView,
     CategoryTypeListCreateView,
-    DailyExpensePharmacyViewSet,
-    DailyExpenseViewSet,
     LabTestApiView,
+    LabTestDetailApiView,
     PatientDeleteView,
     PatientListView,
     PatientUpdateView,
     PharmaceuticalDetailView,
     PharmaceuticalListCreateView,
     PharmaceuticalListView,
-    StaffViewSet,
     StockListView,
-    TakenDailyExpenseViewSet,
     TestTypeApiView,
+    TestTypeDetailApiView,
 )
 
-router = DefaultRouter()
-router.register("daily-expenses", DailyExpenseViewSet)
-router.register("taken-expenses", TakenDailyExpenseViewSet)
-router.register("daily-expenses-pharmacy", DailyExpensePharmacyViewSet)
-router.register("staff", StaffViewSet, basename="staff")
 urlpatterns = [
-    path("", include(router.urls)),
     path("patients/", PatientListView.as_view(), name="patient-list"),
     path("lab/", LabTestApiView.as_view(), name="lab"),
+    path("lab/<int:pk>/", LabTestDetailApiView.as_view(), name="lab-detail"),
     path("test-type/", TestTypeApiView.as_view(), name="lab"),
+    path(
+        "test-type/<int:pk>/",
+        TestTypeDetailApiView.as_view(),
+        name="test-type-detail",
+    ),
     path("patients/<int:pk>/", PatientDeleteView.as_view(), name="patient-delete"),
     path(
         "patients/<int:pk>/update/", PatientUpdateView.as_view(), name="patient-update"
@@ -60,4 +57,5 @@ urlpatterns = [
         PharmaceuticalListView.as_view(),
         name="pharmaceutical-list",
     ),
+    # path("dashboard/summary", dashboard_summary, name="summary"),
 ]

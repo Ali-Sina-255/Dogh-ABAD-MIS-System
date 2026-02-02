@@ -2,16 +2,12 @@ from django.contrib import admin
 
 from .models import (
     CategoryType,
-    DailyExpense,
-    DailyExpensePharmacy,
     LabTest,
     Patient,
     Pharmaceutical,
     PharmaceuticalDrug,
-    Staff,
     StaffType,
     Stock,
-    TakenPrice,
     TestType,
 )
 
@@ -81,51 +77,6 @@ class PatientAdmin(admin.ModelAdmin):
     list_display = ("name", "age", "patient_type", "category", "created_at")
     search_fields = ("name", "patient_type")
     list_filter = ("category", "created_at")
-
-
-# -------------------------------
-# Staff Admin
-# -------------------------------
-@admin.register(Staff)
-class StaffAdmin(admin.ModelAdmin):
-    list_display = (
-        "first_name",
-        "last_name",
-        "email",
-        "role",
-        "phone_number",
-        "salary",
-        "stared_date",
-    )
-    search_fields = ("first_name", "last_name", "email")
-    list_filter = ("role", "position")
-
-
-# -------------------------------
-# DailyExpense Admin
-# -------------------------------
-@admin.register(DailyExpense)
-class DailyExpenseAdmin(admin.ModelAdmin):
-    list_display = ("name", "salary", "who", "totla_price", "date")
-    search_fields = ("name", "who")
-
-
-# -------------------------------
-# TakenPrice Admin
-# -------------------------------
-@admin.register(TakenPrice)
-class TakenPriceAdmin(admin.ModelAdmin):
-    list_display = ("name", "amount", "date")
-    search_fields = ("name", "description")
-
-
-# -------------------------------
-# DailyExpensePharmacy Admin
-# -------------------------------
-@admin.register(DailyExpensePharmacy)
-class DailyExpensePharmacyAdmin(admin.ModelAdmin):
-    list_display = ("name", "amount", "date")
-    search_fields = ("name",)
 
 
 # -------------------------------

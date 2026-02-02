@@ -1,17 +1,14 @@
+from apps.employees.models import Employee
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
 from .models import (
     CategoryType,
-    DailyExpense,
-    DailyExpensePharmacy,
     LabTest,
     Patient,
     Pharmaceutical,
     PharmaceuticalDrug,
-    Staff,
     Stock,
-    TakenPrice,
     TestType,
 )
 
@@ -21,13 +18,21 @@ User = get_user_model()
 class TestTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = TestType
-        fields = ["id", "name", "date"]
+        fields = ["id", "name", "date", "jalali_month"]
 
 
 class LabTestSerializer(serializers.ModelSerializer):
     class Meta:
         model = LabTest
-        fields = ["id", "patient", "test_type", "price", "refer_to", "date"]
+        fields = [
+            "id",
+            "patient",
+            "test_type",
+            "price",
+            "refer_to",
+            "date",
+            "jalali_month",
+        ]
 
 
 # ---------------- Stock ---------------- #
@@ -45,6 +50,7 @@ class StockSerializer(serializers.ModelSerializer):
             "amount",
             "created_at",
             "updated_at",
+            "jalali_month",
         ]
 
     def calculate_total_price(self, price, percentage):
@@ -87,7 +93,16 @@ class PatientSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Patient
-        fields = ["id", "name", "age", "patient_type", "category", "all_categories"]
+        fields = [
+            "id",
+            "name",
+            "age",
+            "patient_type",
+            "category",
+            "all_categories",
+            "created_at",
+            "jalali_month",
+        ]
 
 
 # ---------------- Pharmaceutical & Drugs ---------------- #
@@ -104,10 +119,11 @@ class PharmaceuticalDrugSerializer(serializers.ModelSerializer):
 
 class PharmaceuticalSerializer(serializers.ModelSerializer):
     doctor_name = serializers.PrimaryKeyRelatedField(
-        queryset=User.objects.all(), required=False
+        queryset=Employee.objects.all(), required=False
     )
     patient_name = serializers.PrimaryKeyRelatedField(queryset=Patient.objects.all())
     drugs = PharmaceuticalDrugSerializer(many=True, source="pharmaceuticaldrug_set")
+    jalali_month = serializers.CharField(read_only=True)
 
     class Meta:
         model = Pharmaceutical
@@ -120,6 +136,7 @@ class PharmaceuticalSerializer(serializers.ModelSerializer):
             "price",
             "created_at",
             "updated_at",
+            "jalali_month",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
 
@@ -185,55 +202,3 @@ class PharmaceuticalSerializer(serializers.ModelSerializer):
                 )
 
         return instance
-
-
-# ---------------- DailyExpense ---------------- #
-class DailyExpenseSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = DailyExpense
-        fields = ["id", "name", "salary", "who", "totla_price", "date"]
-
-
-# ---------------- TakenPrice ---------------- #
-class TakenPriceSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = TakenPrice
-        fields = ["id", "name", "description", "amount", "date"]
-
-
-# ---------------- Staff ---------------- #
-class StaffSerializer(serializers.ModelSerializer):
-    email = serializers.EmailField(default="noemail@domain.com")
-    last_name = serializers.CharField(default="Unknown")
-    position = serializers.PrimaryKeyRelatedField(
-        queryset=CategoryType.objects.all(), required=True
-    )
-    position_name = serializers.CharField(source="position.name", read_only=True)
-
-    class Meta:
-        model = Staff
-        fields = [
-            "id",
-            "first_name",
-            "last_name",
-            "email",
-            "role",
-            "phone_number",
-            "position",
-            "position_name",
-            "salary",
-            "stared_date",
-            "created_at",
-        ]
-
-
-# ---------------- DailyExpensePharmacy ---------------- #
-class DailyExpensePharmacySerializer(serializers.ModelSerializer):
-    class Meta:
-        model = DailyExpensePharmacy
-        fields = ["id", "name", "amount", "date"]
-
-    def validate_amount(self, value):
-        if value < 0:
-            raise serializers.ValidationError("Amount cannot be negative.")
-        return value

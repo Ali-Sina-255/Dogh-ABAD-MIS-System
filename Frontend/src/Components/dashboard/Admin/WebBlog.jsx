@@ -1,366 +1,244 @@
-import React, { useEffect, useState, useRef } from "react";
-import axios from "axios";
-import Swal from "sweetalert2";
+import { useEffect, useState } from "react";
+import { axiosInstance } from "../../../utils/api";
+import {
+  showErrorToast,
+  showSuccessToast,
+  showWarningToast,
+} from "../../messages/Toast";
 
-const WebBlog = () => {
-  const fileInputRef = useRef(null);
-  const [blogs, setBlogs] = useState([]);
+const Categories = () => {
   const [categories, setCategories] = useState([]);
-  const [newCategory, setNewCategory] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+
+  /* Pagination */
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
+
+  /* Modal */
+  const [showModal, setShowModal] = useState(false);
+  const [editingCategory, setEditingCategory] = useState(null);
+
   const [formData, setFormData] = useState({
-    title: "",
-    description: "",
-    image: null,
-    category: "",
+    name: "",
   });
-  const [error, setError] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  /* ========================= Fetch ========================== */
+  const fetchCategories = async () => {
+    setLoading(true);
+    try {
+      const res = await axiosInstance.get("core/category-types/");
+      setCategories(res.data || []);
+      setCurrentPage(1);
+    } catch (err) {
+      console.error(err);
+      showErrorToast("Failed to load categories");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        const response = await axios.get(
-          "http://127.0.0.1:8000/reception/blog/categories/"
-        );
-        if (response.status === 200 && Array.isArray(response.data)) {
-          setCategories(response.data);
-        } else {
-          console.error("Invalid response structure for categories:", response);
-        }
-      } catch (error) {
-        console.error("Error fetching categories:", error);
-        setError(
-          "Failed to load categories. Please refresh the page or try again later."
-        );
-      }
-    };
-
-    const fetchBlogs = async () => {
-      try {
-        const response = await axios.get(
-          "http://127.0.0.1:8000/reception/blog/blog-posts/"
-        );
-        if (response.status === 200 && Array.isArray(response.data)) {
-          setBlogs(response.data);
-        } else {
-          console.error("Invalid response structure for blog posts:", response);
-        }
-      } catch (error) {
-        console.error("Error fetching blog posts:", error);
-        setError(
-          "Failed to load blog posts. Please refresh the page or try again later."
-        );
-      }
-    };
-
     fetchCategories();
-    fetchBlogs();
   }, []);
 
-  // Handle form field changes
+  /* ========================= Form ========================== */
   const handleChange = (e) => {
-    const { name, value, files } = e.target;
-    setFormData({ ...formData, [name]: files ? files[0] : value });
-    if (name === "category" && value !== "add") {
-      setError(""); // Clear error when a valid category is selected
-    }
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
   };
 
-  // Handle form submission
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    setError("");
+  const resetForm = () => {
+    setFormData({ name: "" });
+    setEditingCategory(null);
+    setShowModal(false);
+  };
 
-    // Handle category creation if "add" is selected
-    if (formData.category === "add") {
-      if (!newCategory) {
-        setError("Please provide a name for the new category.");
-        setIsSubmitting(false);
-        return;
-      }
+  const handleSubmit = async () => {
+    if (!formData.name.trim()) {
+      return showWarningToast("Category name is required");
+    }
 
-      try {
-        const response = await axios.post(
-          "http://127.0.0.1:8000/reception/blog/categories/",
-          { category_name: newCategory }
+    setSubmitting(true);
+    try {
+      if (editingCategory) {
+        await axiosInstance.put(
+          `core/category-types/${editingCategory.id}/`,
+          formData,
         );
-        if (response.status === 201) {
-          setCategories((prevCategories) => [...prevCategories, response.data]);
-          formData.category = response.data.id;
-          setNewCategory("");
-          setError("");
-        }
-      } catch (error) {
-        console.error("Error adding category:", error);
-        setError("Failed to add new category. Please try again later.");
-        setIsSubmitting(false);
-        return;
+        showSuccessToast("Category updated successfully");
+      } else {
+        await axiosInstance.post("core/category-types/", formData);
+        showSuccessToast("Category created successfully");
       }
-    }
 
-    // Prepare FormData for blog post submission
-    const payload = new FormData();
-    payload.append("title", formData.title);
-    payload.append("description", formData.description);
-    payload.append("category", formData.category);
-    if (formData.image) {
-      payload.append("image", formData.image);
-    }
-
-    try {
-      const response = await axios.post(
-        "http://127.0.0.1:8000/reception/blog/blog-posts/",
-        payload,
-        {
-          headers: { "Content-Type": "multipart/form-data" },
-        }
-      );
-
-      if (response.status === 201) {
-        setBlogs((prevBlogs) => [...prevBlogs, response.data]);
-        setFormData({ title: "", description: "", image: null, category: "" });
-        setError("");
-        Swal.fire("Success!", "Blog post added successfully.", "success");
-      }
-    } catch (error) {
-      console.error("Error creating blog post:", error.response?.data);
-      setError("Failed to submit blog post. Please try again later.");
+      resetForm();
+      fetchCategories();
+    } catch (err) {
+      console.error(err);
+      showErrorToast("Failed to save category");
     } finally {
-      setIsSubmitting(false);
+      setSubmitting(false);
     }
   };
 
-  // Handle delete blog post
-  const handleDelete = async (blogId) => {
-    Swal.fire({
-      title: "Are you sure?",
-      text: "This action cannot be undone.",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonColor: "#d33",
-      cancelButtonColor: "#3085d6",
-      confirmButtonText: "Yes, delete it!",
-    }).then(async (result) => {
-      if (result.isConfirmed) {
-        try {
-          const response = await axios.delete(
-            `http://127.0.0.1:8000/reception/blog/blog-posts/${blogId}/`
-          );
-          if (response.status === 204) {
-            setBlogs((prevBlogs) =>
-              prevBlogs.filter((blog) => blog.id !== blogId)
-            );
-            Swal.fire("Deleted!", "Blog post has been deleted.", "success");
-          }
-        } catch (error) {
-          console.error("Error deleting blog post:", error);
-          Swal.fire(
-            "Error!",
-            "Failed to delete blog post. Please try again later.",
-            "error"
-          );
-        }
-      }
-    });
+  const handleEdit = (category) => {
+    setEditingCategory(category);
+    setFormData({ name: category.name });
+    setShowModal(true);
   };
 
-  // Handle update blog post (edit form)
-  const handleEdit = (blog) => {
-    setFormData({
-      title: blog.title,
-      description: blog.description,
-      category: blog.category,
-      image: null, // Set to null to keep existing image unchanged
-    });
-  };
-
-  // Function to handle adding a new category
-  const handleAddCategory = async () => {
-    if (!newCategory) {
-      setError("Please provide a name for the new category.");
-      return;
-    }
-
+  const handleDelete = async (id) => {
+    if (!window.confirm("Delete this category?")) return;
     try {
-      const response = await axios.post(
-        "http://127.0.0.1:8000/reception/blog/categories/",
-        { category_name: newCategory }
-      );
-
-      if (response.status === 201) {
-        setCategories((prevCategories) => [...prevCategories, response.data]);
-        setFormData((prevFormData) => ({
-          ...prevFormData,
-          category: response.data.id, // Set the new category as the selected one
-        }));
-        setNewCategory(""); // Clear the new category input field
-        setError(""); // Clear any previous error
-      }
-    } catch (error) {
-      console.error("Error adding category:", error);
-      setError("Failed to add new category. Please try again later.");
+      await axiosInstance.delete(`core/category-types/${id}/`);
+      showSuccessToast("Category deleted");
+      fetchCategories();
+    } catch (err) {
+      console.error(err);
+      showErrorToast("Failed to delete category");
     }
   };
 
+  /* ========================= Pagination ========================== */
+  const totalPages = Math.ceil(categories.length / itemsPerPage);
+  const paginatedCategories = categories.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage,
+  );
+
+  /* ========================= Render ========================== */
   return (
-    <div>
-      <h2 className="text-xl font-bold mb-4">مدیریت وبلاگ</h2>
-      {error && <p className="text-red-500 mb-4">{error}</p>}
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Title input */}
-        <label htmlFor="title" className="block font-semibold">
-          عنوان
-        </label>
-        <input
-          id="title"
-          type="text"
-          name="title"
-          value={formData.title}
-          onChange={handleChange}
-          className="border p-2 w-full"
-        />
-
-        {/* Description input */}
-        <label htmlFor="description" className="block font-semibold">
-          توضیحات
-        </label>
-        <textarea
-          id="description"
-          name="description"
-          value={formData.description}
-          onChange={handleChange}
-          className="border p-2 w-full"
-        ></textarea>
-
-        {/* Image input */}
-        <label htmlFor="image" className="block font-semibold">
-          تصویر
-        </label>
-        <input
-          ref={fileInputRef}
-          id="image"
-          type="file"
-          name="image"
-          onChange={handleChange}
-          className="border p-2 w-full"
-        />
-
-        {/* Category selection */}
-        <label htmlFor="category" className="block font-semibold">
-          دسته‌بندی
-        </label>
-        <select
-          id="category"
-          name="category"
-          value={formData.category}
-          onChange={handleChange}
-          className="border p-2 w-full"
-        >
-          <option value="" disabled>
-            انتخاب دسته‌بندی
-          </option>
-          {categories.map((category) => (
-            <option key={category.id} value={category.id}>
-              {category.category_name}
-            </option>
-          ))}
-          <option value="add">+ افزودن دسته‌بندی جدید</option>
-        </select>
-
-        {/* New category input */}
-        {formData.category === "add" && (
-          <div className="flex items-center space-x-2">
-            <input
-              type="text"
-              placeholder="نام دسته‌بندی جدید"
-              value={newCategory}
-              onChange={(e) => setNewCategory(e.target.value)}
-              className="border p-2 w-full"
-            />
-            <button
-              type="button"
-              onClick={handleAddCategory}
-              className="bg-green-500 text-white px-4 py-2 rounded"
-            >
-              افزودن
-            </button>
-            <button
-              type="button"
-              onClick={() => setFormData((prev) => ({ ...prev, category: "" }))}
-              className="bg-red-500 text-white px-4 py-2 rounded"
-            >
-              انصراف
-            </button>
-          </div>
-        )}
-
-        {/* Submit button */}
+    <div className="p-6 space-y-4">
+      {/* Header */}
+      <div className="flex justify-between items-center">
         <button
-          type="submit"
-          className={`bg-blue-500 text-white px-4 py-2 rounded ${
-            isSubmitting ? "opacity-50 cursor-not-allowed" : ""
-          }`}
-          disabled={isSubmitting}
+          onClick={() => setShowModal(true)}
+          className="px-4 py-1 bg-green text-white rounded hover:opacity-90"
         >
-          {isSubmitting ? "در حال ارسال..." : "افزودن"}
+          + اضافه کردن
         </button>
-      </form>
+        {/* <h2 className="text-lg font-bold">Category Manager</h2> */}
+      </div>
 
-      {/* Displaying blogs */}
-      <h3 className="text-lg font-bold mt-6">وبلاگ‌های موجود</h3>
-      <table className="w-full mt-4 border">
-        <thead>
-          <tr className="bg-gray-200">
-            <th className="border px-4 py-2">عنوان</th>
-            <th className="border px-4 py-2">دسته‌بندی</th>
-            <th className="border px-4 py-2">تصویر</th>
-            <th className="border px-4 py-2">توضیحات</th>
-            <th className="border px-4 py-2">عملیات</th>
-          </tr>
-        </thead>
-        <tbody>
-          {blogs.map((blog) => (
-            <tr key={blog.id}>
-              <td className="border px-4 py-2">{blog.title}</td>
-              <td className="border px-4 py-2">
-                {categories.length > 0 && blog.category
-                  ? categories.find((category) => category.id === blog.category)
-                      ?.category_name || "نامشخص"
-                  : "نامشخص"}
-              </td>
-              <td className="border px-4 py-2">
-                {blog.image ? (
-                  <img
-                    src={blog.image} // Adjust path as necessary
-                    alt={blog.title}
-                    className="w-20 h-20 object-cover"
-                  />
-                ) : (
-                  "بدون تصویر"
-                )}
-              </td>
-              <td className="border px-4 py-2">{blog.description}</td>
-              <td className="border px-4 py-2">
-                <button
-                  onClick={() => handleEdit(blog)}
-                  className="bg-yellow-500 text-white px-4 py-1 rounded mb-2"
-                >
-                  ویرایش
-                </button>
-                <button
-                  onClick={() => handleDelete(blog.id)}
-                  className="bg-red-500 text-white px-4 py-1 rounded"
-                >
-                  حذف
-                </button>
-              </td>
+      {/* Table */}
+      <div className="bg-white rounded shadow overflow-x-auto">
+        <table className="w-full text-sm border">
+          <thead className="bg-green text-white border-b">
+            <tr>
+              <th className="p-2 border">نام</th>
+              <th className="p-2 border">عملیات</th>
             </tr>
+          </thead>
+
+          <tbody>
+            {loading ? (
+              <tr>
+                <td colSpan="2" className="p-4 text-center">
+                  Loading...
+                </td>
+              </tr>
+            ) : paginatedCategories.length === 0 ? (
+              <tr>
+                <td colSpan="2" className="p-4 text-center text-gray-500">
+                  No categories found
+                </td>
+              </tr>
+            ) : (
+              paginatedCategories.map((cat) => (
+                <tr key={cat.id} className="hover:bg-gray-50 text-center">
+                  <td className="p-2 border">{cat.name}</td>
+                  <td className="p-2 border space-x-2">
+                    <button
+                      onClick={() => handleEdit(cat)}
+                      className="px-2 py-1 bg-green text-white rounded"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleDelete(cat.id)}
+                      className="px-2 py-1 bg-red-500 text-white rounded"
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex justify-center gap-2">
+          <button
+            disabled={currentPage === 1}
+            onClick={() => setCurrentPage((p) => p - 1)}
+            className="px-3 py-1 border rounded disabled:opacity-50"
+          >
+            Prev
+          </button>
+
+          {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+            <button
+              key={p}
+              onClick={() => setCurrentPage(p)}
+              className={`px-3 py-1 border rounded ${
+                p === currentPage ? "bg-green text-white" : ""
+              }`}
+            >
+              {p}
+            </button>
           ))}
-        </tbody>
-      </table>
+
+          <button
+            disabled={currentPage === totalPages}
+            onClick={() => setCurrentPage((p) => p + 1)}
+            className="px-3 py-1 border rounded disabled:opacity-50"
+          >
+            Next
+          </button>
+        </div>
+      )}
+
+      {/* Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
+          <div className="bg-white rounded p-6 w-96">
+            <h3 className="text-lg font-bold mb-4">
+              {editingCategory ? "ویرایش" : "اضافه کردن  "}
+            </h3>
+
+            <input
+              name="name"
+              placeholder=" نام بخش"
+              value={formData.name}
+              onChange={handleChange}
+              className="border p-2 w-full mb-4"
+            />
+
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={resetForm}
+                className="px-3 py-1 border rounded"
+                disabled={submitting}
+              >
+                لغو
+              </button>
+              <button
+                onClick={handleSubmit}
+                className="px-4 py-1 bg-blue-600 text-white rounded"
+                disabled={submitting}
+              >
+                {submitting ? "Saving..." : "ثبت"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
-export default WebBlog;
+export default Categories;

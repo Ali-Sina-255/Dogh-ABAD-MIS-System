@@ -1,4 +1,4 @@
-#!/home/ali/Desktop/Developments/Django/Dogh-ABAD-MIS-System/Backend/venv/bin/python3
+#!/home/debian/Desktop/Dev/Django/Hadaf-MIS-system/Backend/venv/bin/python3
 # -*- coding: utf-8 -*-
 import re
 import sys

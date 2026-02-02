@@ -1,247 +1,337 @@
-import React, { useState, useEffect } from "react";
-import axios from "axios";
-import Swal from "sweetalert2";
+import React, { useEffect, useState } from "react";
+import { axiosInstance } from "../../../utils/api";
+import {
+  showErrorToast,
+  showSuccessToast,
+  showWarningToast,
+} from "../../messages/Toast";
+import { PERSIAN_MONTHS, getCurrentJalaliMonth } from "../../../utils/jalali";
 
-const Slider = () => {
-  const [sliders, setSliders] = useState([]);
-  const [formData, setFormData] = useState({
-    id: "",
-    image: null,
+const PatientManager = () => {
+  /* ========================= State ========================== */
+  const [patients, setPatients] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const [selectedMonth, setSelectedMonth] = useState(getCurrentJalaliMonth());
+
+  /* Pagination */
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+  /* Add/Edit Patient Modal */
+  const [showModal, setShowModal] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+
+  const [newPatient, setNewPatient] = useState({
+    name: "",
+    age: "",
+    patient_type: "",
+    category: null,
   });
-  const [error, setError] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedImageId, setSelectedImageId] = useState(null);
 
-  // Set up Axios default headers with token from localStorage
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (token) {
-      axios.defaults.headers.common["Authorization"] = `Token ${token}`;
-    } else {
-      console.warn("No token found in localStorage. Ensure you're logged in.");
-    }
-  }, []);
-  const fetchSliders = async () => {
+  const [categories, setCategories] = useState([]);
+
+  /* ========================= Fetch ========================== */
+  const fetchPatients = async (month) => {
+    setLoading(true);
     try {
-      const response = await axios.get(
-        "http://localhost:8000/common/upload-image/"
-      );
-      if (response.status === 200) {
-        setSliders(response.data);
-        console.log("Fetched sliders:", response.data);
-      } else {
-        setError("Failed to load data. Please try again later.");
-      }
-    } catch (error) {
-      setError("An error occurred while loading the data.");
+      const res = await axiosInstance.get("/core/patients/", {
+        params: { jalali_month: month },
+      });
+      let data = res.data || [];
+      data = data.filter((p) => !p.jalali_month || p.jalali_month === month);
+      setPatients(data);
+      setCurrentPage(1);
+    } catch (err) {
+      console.error(err);
+      showErrorToast("خطا در دریافت بیماران");
+    } finally {
+      setLoading(false);
     }
   };
-  // Fetch existing images
-  useEffect(() => {
-    fetchSliders();
-  }, []);
 
-  // Handle input changes
-  const handleChange = (e) => {
-    const { name, value, files } = e.target;
-    setFormData({ ...formData, [name]: files ? files[0] : value });
+  const fetchCategories = async () => {
+    try {
+      const res = await axiosInstance.get("/core/category-types/");
+      setCategories(Array.isArray(res.data) ? res.data : []);
+    } catch (err) {
+      console.error(err);
+      showErrorToast("خطا در دریافت دسته‌بندی‌ها");
+    }
   };
 
-  // Handle form submission (create or update)
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setIsSubmitting(true);
+  useEffect(() => {
+    fetchPatients(selectedMonth);
+    fetchCategories();
+  }, [selectedMonth]);
 
-    const token = localStorage.getItem("token");
-    const form = new FormData();
+  /* ========================= Pagination ========================== */
+  const totalPages = Math.ceil(patients.length / itemsPerPage);
+  const paginatedPatients = patients.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage,
+  );
 
-    // Ensure an image is selected
-    if (formData.image) {
-      form.append("image", formData.image);
-    } else {
-      setError("Please select an image to upload.");
-      setIsSubmitting(false);
+  /* ========================= Handlers ========================== */
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setNewPatient((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleCategoryChange = (e) => {
+    setNewPatient((prev) => ({
+      ...prev,
+      category: e.target.value ? parseInt(e.target.value, 10) : null,
+    }));
+  };
+
+  const handleSavePatient = async () => {
+    const { name, age, patient_type, category } = newPatient;
+    if (!name || !age || !patient_type || category === null) {
+      showWarningToast("لطفاً تمام فیلدها را تکمیل کنید");
       return;
     }
 
+    setSaving(true);
     try {
-      let response;
-      if (selectedImageId) {
-        // Update existing image
-        response = await axios.put(
-          `http://localhost:8000/common/upload-image/${selectedImageId}/`,
-          form,
-          {
-            headers: {
-              "Content-Type": "multipart/form-data",
-              Authorization: `Token ${token}`,
-            },
-          }
-        );
-        if (response.status === 200) {
-          Swal.fire("Updated!", "The image has been updated.", "success");
-
-          // Update the slider in the state with the new image URL
-          setSliders((prevSliders) =>
-            prevSliders.map((slider) =>
-              slider.id === selectedImageId
-                ? { ...slider, images: response.data.images } // Ensure this is the full URL
-                : slider
-            )
-          );
-          setSelectedImageId(null);
-        } else {
-          Swal.fire("Error", "Failed to update the image.", "error");
-        }
+      if (editingId) {
+        await axiosInstance.put(`/core/patients/${editingId}/`, newPatient);
+        showSuccessToast("اطلاعات بیمار با موفقیت ویرایش شد");
       } else {
-        // Create new image
-        response = await axios.post(
-          "http://localhost:8000/common/upload-image/",
-          form,
-          {
-            headers: {
-              "Content-Type": "multipart/form-data",
-              Authorization: `Token ${token}`,
-            },
-          }
-        );
-        if (response.status === 201) {
-          Swal.fire("Added!", "The image has been added.", "success");
+        await axiosInstance.post("/core/patients/", newPatient);
+        showSuccessToast("بیمار با موفقیت اضافه شد");
+      }
 
-          setSliders((prevSliders) => [...prevSliders, response.data]);
-          fetchSliders();
-        } else {
-          Swal.fire("Error", "Failed to add the image.", "error");
-        }
-      }
-    } catch (error) {
-      console.error("Error submitting image:", error);
-      if (error.response) {
-        setError(
-          `An error occurred: ${
-            error.response.data.detail || "Failed to submit the image."
-          }`
-        );
-      } else {
-        setError("An error occurred while submitting the image.");
-      }
+      closeModal();
+      fetchPatients(selectedMonth);
+    } catch (err) {
+      console.error(err);
+      showErrorToast("خطا در ذخیره اطلاعات بیمار");
     } finally {
-      setIsSubmitting(false);
-      setFormData({ id: "", image: null });
+      setSaving(false);
     }
   };
 
-  // Handle editing an image
-  const handleEdit = (image) => {
-    setFormData({ id: image.id, image: null });
-    setSelectedImageId(image.id);
+  const handleEdit = (patient) => {
+    setEditingId(patient.id);
+    setNewPatient({
+      name: patient.name,
+      age: patient.age,
+      patient_type: patient.patient_type,
+      category: patient.category || null,
+    });
+    setShowModal(true);
   };
 
-  // Handle deleting an image
   const handleDelete = async (id) => {
+    if (!window.confirm("آیا از حذف این بیمار مطمئن هستید؟")) return;
     try {
-      const token = localStorage.getItem("token");
-      const response = await axios.delete(
-        `http://localhost:8000/common/upload-image/${id}/`,
-        {
-          headers: {
-            Authorization: `Token ${token}`,
-          },
-        }
-      );
-
-      if (response.status === 204) {
-        Swal.fire("Deleted!", "The image has been deleted.", "success");
-        setSliders(sliders.filter((slider) => slider.id !== id));
-      } else {
-        Swal.fire("Error", "Failed to delete the image.", "error");
-      }
-    } catch (error) {
-      Swal.fire(
-        "Error",
-        `An error occurred: ${
-          error.response
-            ? error.response.data.detail
-            : "Failed to delete the image."
-        }`,
-        "error"
-      );
+      await axiosInstance.delete(`/core/patients/${id}/`);
+      setPatients((prev) => prev.filter((p) => p.id !== id));
+      showSuccessToast("بیمار با موفقیت حذف شد");
+    } catch (err) {
+      console.error(err);
+      showErrorToast("خطا در حذف بیمار");
     }
   };
 
-  const BASE_URL = "http://localhost:8000";
+  const closeModal = () => {
+    setShowModal(false);
+    setEditingId(null);
+    setNewPatient({ name: "", age: "", patient_type: "", category: null });
+  };
 
+  const getCategoryName = (id) =>
+    categories.find((c) => c.id === id)?.name || "—";
+
+  /* ========================= Render ========================== */
   return (
-    <div>
-      <h2 className="text-xl font-bold mb-4">مدیریت اسلایدر</h2>
-      {error && <p className="text-red-500 mb-4">{error}</p>}
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <input
-          type="file"
-          name="image"
-          placeholder="آدرس تصویر"
-          onChange={handleChange}
-          className="border p-2 w-full"
-        />
+    <div className="p-6 space-y-4">
+      {/* Month Filter + Add Button */}
+      <div className="flex justify-between items-center">
         <button
-          type="submit"
-          className={`bg-blue-500 text-white px-4 py-2 rounded ${
-            isSubmitting ? "opacity-50 cursor-not-allowed" : ""
-          }`}
-          disabled={isSubmitting}
+          onClick={() => setShowModal(true)}
+          className="px-4 py-1 bg-green text-white rounded"
         >
-          {isSubmitting
-            ? "در حال ارسال..."
-            : selectedImageId
-            ? "ویرایش"
-            : "افزودن"}
+          + افزودن بیمار
         </button>
-      </form>
 
-      <table className="w-full mt-6 border">
-        <thead>
-          <tr className="bg-gray-200">
-            <th className="border px-4 py-2">شناسه</th>
-            <th className="border px-4 py-2">تصویر</th>
-            <th className="border px-4 py-2">عملیات</th>
-          </tr>
-        </thead>
-        <tbody>
-          {sliders.map((slider) => (
-            <tr key={slider.id}>
-              <td className="border px-4 py-2">{slider.id}</td>
-              <td className="border px-4 py-2">
-                {slider.images ? (
-                  <img
-                    src={`${BASE_URL}${slider.images}`} // Ensure the path is correct for displaying images
-                    alt={`Slider ${slider.id}`}
-                    width={100}
-                    className="object-cover"
-                  />
-                ) : (
-                  <span>No image available</span>
-                )}
-              </td>
-              <td className="border px-4 py-2">
-                <button
-                  onClick={() => handleEdit(slider)}
-                  className="bg-yellow-500 text-white px-4 py-1 rounded"
-                >
-                  ویرایش
-                </button>
-                <button
-                  onClick={() => handleDelete(slider.id)}
-                  className="bg-red-500 text-white px-4 py-1 rounded ml-2"
-                >
-                  حذف
-                </button>
-              </td>
-            </tr>
+        <div className="flex flex-wrap gap-2">
+          {PERSIAN_MONTHS.map((month) => (
+            <button
+              key={month}
+              onClick={() => setSelectedMonth(month)}
+              className={`px-3 py-1 rounded-full border text-sm transition ${
+                selectedMonth === month
+                  ? "bg-green text-white"
+                  : "bg-white hover:bg-gray-100"
+              }`}
+            >
+              {month}
+            </button>
           ))}
-        </tbody>
-      </table>
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="bg-white rounded shadow overflow-x-auto">
+        <table className="w-full text-sm border">
+          <thead className="bg-green text-white">
+            <tr>
+              <th className="p-2 border">نام</th>
+              <th className="p-2 border">سن</th>
+              <th className="p-2 border">نوع بیماری</th>
+              <th className="p-2 border">دسته‌بندی</th>
+              <th className="p-2 border">عملیات</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr>
+                <td colSpan="5" className="p-4 text-center text-gray-500">
+                  در حال بارگذاری...
+                </td>
+              </tr>
+            ) : paginatedPatients.length === 0 ? (
+              <tr>
+                <td colSpan="5" className="p-4 text-center text-gray-500">
+                  بیماری یافت نشد
+                </td>
+              </tr>
+            ) : (
+              paginatedPatients.map((p) => (
+                <tr key={p.id} className="hover:bg-gray-50 text-center">
+                  <td className="p-2 border font-bold">{p.name}</td>
+                  <td className="p-2 border">{p.age}</td>
+                  <td className="p-2 border">{p.patient_type}</td>
+                  <td className="p-2 border">{getCategoryName(p.category)}</td>
+                  <td className="p-2 border flex justify-center gap-2">
+                    <button
+                      className="px-2 py-1 bg-green text-white rounded"
+                      onClick={() => handleEdit(p)}
+                    >
+                      ویرایش
+                    </button>
+                    <button
+                      className="px-2 py-1 bg-red-500 text-white rounded"
+                      onClick={() => handleDelete(p.id)}
+                    >
+                      حذف
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex justify-center gap-2">
+          <button
+            disabled={currentPage === 1}
+            onClick={() => setCurrentPage((p) => p - 1)}
+            className="px-3 py-1 border rounded disabled:opacity-50"
+          >
+            قبلی
+          </button>
+
+          {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+            <button
+              key={p}
+              onClick={() => setCurrentPage(p)}
+              className={`px-3 py-1 border rounded ${
+                p === currentPage ? "bg-green text-white" : ""
+              }`}
+            >
+              {p}
+            </button>
+          ))}
+
+          <button
+            disabled={currentPage === totalPages}
+            onClick={() => setCurrentPage((p) => p + 1)}
+            className="px-3 py-1 border rounded disabled:opacity-50"
+          >
+            بعدی
+          </button>
+        </div>
+      )}
+
+      {/* Add/Edit Patient Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
+          <div className="bg-white rounded p-6 w-96 max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-bold mb-4">
+              {editingId ? "ویرایش بیمار" : "افزودن بیمار جدید"}
+            </h3>
+
+            <input
+              type="text"
+              name="name"
+              placeholder="نام بیمار"
+              className="border p-2 w-full mb-2"
+              value={newPatient.name}
+              onChange={handleChange}
+              disabled={saving}
+            />
+            <input
+              type="number"
+              name="age"
+              placeholder="سن"
+              className="border p-2 w-full mb-2"
+              value={newPatient.age}
+              onChange={handleChange}
+              disabled={saving}
+            />
+            <input
+              type="text"
+              name="patient_type"
+              placeholder="نوع بیمار"
+              className="border p-2 w-full mb-2"
+              value={newPatient.patient_type}
+              onChange={handleChange}
+              disabled={saving}
+            />
+
+            <select
+              name="category"
+              value={newPatient.category || ""}
+              onChange={handleCategoryChange}
+              className="w-full p-2 border rounded mb-2"
+              disabled={saving}
+            >
+              <option value="">انتخاب دسته‌بندی</option>
+              {categories.map((cat) => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.name}
+                </option>
+              ))}
+            </select>
+
+            <div className="flex justify-end gap-2 mt-4">
+              <button
+                onClick={closeModal}
+                className="px-4 py-1 bg-gray-300 rounded"
+                disabled={saving}
+              >
+                انصراف
+              </button>
+              <button
+                onClick={handleSavePatient}
+                className="px-4 py-1 bg-green text-white rounded"
+                disabled={saving}
+              >
+                {saving ? "در حال ذخیره..." : editingId ? "بروزرسانی" : "ذخیره"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
-export default Slider;
+export default PatientManager;

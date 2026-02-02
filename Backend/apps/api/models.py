@@ -1,3 +1,4 @@
+from ckeditor_uploader.fields import RichTextUploadingField
 from django.contrib.auth import get_user_model
 from django.db import models
 from django.utils import timezone
@@ -21,7 +22,7 @@ class Category(models.Model):
 class Order(models.Model):
     Customer_name = models.CharField(_("Customer Name :"), max_length=255)
     order_name = models.CharField(_("Order Name : "), max_length=255)
-    description = models.TextField()
+    description = RichTextUploadingField()
     category = models.ManyToManyField(Category)
     created_at = models.DateField(_("Order Created Date"), auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -35,7 +36,7 @@ class Reception(models.Model):
     designer = models.ForeignKey(User, on_delete=models.CASCADE)
     customer_name = models.CharField(_("Customer Name"), max_length=255)
     order_name = models.CharField(_("Order Name "), max_length=255)
-    description = models.TextField(_("Description"))
+    description = RichTextUploadingField(_("Description"))
     total_price = models.DecimalField(
         max_digits=10, decimal_places=2, null=True, blank=True
     )
@@ -65,7 +66,7 @@ class BlogPost(models.Model):
     title = models.CharField(max_length=255)
     category = models.ForeignKey(PostCategory, on_delete=models.CASCADE)
     image = models.ImageField(upload_to="media/blog/", null=True, blank=True)
-    description = models.TextField()
+    description = RichTextUploadingField()
     created_at = models.DateField(_("Blog Post Created Date"), auto_now_add=True)
 
     def __str__(self) -> str:

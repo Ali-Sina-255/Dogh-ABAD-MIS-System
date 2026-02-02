@@ -3,9 +3,6 @@ from rest_framework.permissions import BasePermission
 
 
 class CanUpdatePrice(BasePermission):
-    """
-    Custom permission to allow only receptionists to update prices.
-    """
 
     def has_permission(self, request, view):
         User = get_user_model()  # Get the User model from Django's auth app

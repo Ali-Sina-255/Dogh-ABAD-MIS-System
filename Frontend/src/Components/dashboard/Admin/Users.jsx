@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { FaUserPlus } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
-
+const BASE_URL = import.meta.env.VITE_BASE_URL;
 const UserManagement = () => {
   const navigate = useNavigate();
   const [users, setUsers] = useState([]);
@@ -21,7 +21,6 @@ const UserManagement = () => {
   const [roleChoices, setRoleChoices] = useState([]); // Initialize roleChoices as an empty array
   const [isFormVisible, setIsFormVisible] = useState(false);
 
-  // Fetch users and roles when component mounts
   useEffect(() => {
     fetchUsers();
     fetchRoles(); // Fetch roles as well
@@ -39,7 +38,7 @@ const UserManagement = () => {
       return;
     }
 
-    fetch("http://localhost:8000/users/api/users/", {
+    fetch(`${BASE_URL}/users/api/users/`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
@@ -74,7 +73,7 @@ const UserManagement = () => {
       return;
     }
 
-    fetch("http://localhost:8000/users/api/roles/", {
+    fetch(`${BASE_URL}/users/api/roles/`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
@@ -169,8 +168,8 @@ const UserManagement = () => {
 
     const method = newUser.id ? "PUT" : "POST";
     const url = newUser.id
-      ? `http://localhost:8000/users/api/users/${newUser.id}/`
-      : `http://localhost:8000/users/create/`;
+      ? `${BASE_URL}/users/api/users/${newUser.id}/`
+      : `${BASE_URL}/users/create/`;
 
     fetch(url, {
       method: method,
@@ -219,7 +218,6 @@ const UserManagement = () => {
           {newUser.id ? "Edit User" : "Add New User"}
         </button>
       </div>
-
       {/* Conditionally Render the Form */}
       {isFormVisible && (
         <form
@@ -380,47 +378,47 @@ const UserManagement = () => {
           </div>
         </form>
       )}
-
-//       {/* User List Table */}
-<div className="mt-6">
-  <h2 className="text-2xl font-semibold">Users</h2>
-  {loading ? (
-    <p>Loading users...</p>
-  ) : (
-    <table className="min-w-full table-auto mt-4">
-      <thead>
-        <tr>
-          <th className="px-4 py-2">Username</th>
-          <th className="px-4 py-2">First Name</th>
-          <th className="px-4 py-2">Last Name</th>
-          <th className="px-4 py-2">Email</th>
-          <th className="px-4 py-2">Role</th>
-          <th className="px-4 py-2">Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {users.map((user) => (
-          <tr key={user.id}>
-            <td className="px-4 py-2">{user.username}</td>
-            <td className="px-4 py-2">{user.first_name}</td>
-            <td className="px-4 py-2">{user.last_name}</td>
-            <td className="px-4 py-2">{user.email}</td>
-            <td className="px-4 py-2">{user.role}</td>
-            <td className="px-4 py-2">
-              <button
-                onClick={() => toggleFormVisibility(user)}
-                className="bg-yellow-500 text-white p-2 rounded-md"
-              >
-                Edit
-              </button>
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  )}
-</div>;
-</div>
+      // {/* User List Table */}
+      <div className="mt-6">
+        <h2 className="text-2xl font-semibold">Users</h2>
+        {loading ? (
+          <p>Loading users...</p>
+        ) : (
+          <table className="min-w-full table-auto mt-4">
+            <thead>
+              <tr>
+                <th className="px-4 py-2">Username</th>
+                <th className="px-4 py-2">First Name</th>
+                <th className="px-4 py-2">Last Name</th>
+                <th className="px-4 py-2">Email</th>
+                <th className="px-4 py-2">Role</th>
+                <th className="px-4 py-2">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.map((user) => (
+                <tr key={user.id}>
+                  <td className="px-4 py-2">{user.username}</td>
+                  <td className="px-4 py-2">{user.first_name}</td>
+                  <td className="px-4 py-2">{user.last_name}</td>
+                  <td className="px-4 py-2">{user.email}</td>
+                  <td className="px-4 py-2">{user.role}</td>
+                  <td className="px-4 py-2">
+                    <button
+                      onClick={() => toggleFormVisibility(user)}
+                      className="bg-yellow-500 text-white p-2 rounded-md"
+                    >
+                      Edit
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+      ;
+    </div>
   );
 };
 

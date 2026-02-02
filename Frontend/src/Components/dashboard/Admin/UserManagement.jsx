@@ -1,518 +1,450 @@
-import React, { useState, useEffect } from "react";
-import { FaUserPlus } from "react-icons/fa";
-import { useNavigate } from "react-router-dom";
-import Swal from "sweetalert2";
+import { useEffect, useState } from "react";
+import { showErrorToast, showSuccessToast } from "../../messages/Toast";
+import { axiosInstance } from "../../../utils/api";
+import { getCurrentJalaliMonth, PERSIAN_MONTHS } from "../../../utils/jalali";
+import StudentSearchBox from "./searchbox/StudentSearchBox";
+
+const roles = [
+  { id: 0, name: "سایر" },
+  { id: 1, name: "دکتر" },
+  { id: 2, name: "پذیرش" },
+  { id: 3, name: "آشپز" },
+  { id: 4, name: "نگهبان" },
+];
 
 const UserManagement = () => {
-  const navigate = useNavigate();
   const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [newUser, setNewUser] = useState({
-    id: null,
-    firstName: "",
-    lastName: "",
+  const [teacherLevels, setTeacherLevels] = useState([]);
+
+  const [selectedMonth, setSelectedMonth] = useState(getCurrentJalaliMonth());
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const itemsPerPage = 8;
+  const [showModal, setShowModal] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
+
+  /* ================= فرم ================= */
+  const [formData, setFormData] = useState({
+    first_name: "",
+    last_name: "",
     email: "",
-    phoneNumber: "",
-    role: "",
-    password: "",
-    passwordConfirm: "",
+    phone_number: "",
+    identity_card: "",
+    role: 0,
+    salary: "",
+    contract_duration: "",
+    contract_type: "fix",
+    teacher_level: "",
+    jalali_month: getCurrentJalaliMonth(),
   });
-  const [isFormVisible, setIsFormVisible] = useState(false);
 
-  // Define roles array
-  const roles = [
-    { id: 1, name: "Designer" },
-    { id: 2, name: "Reception" },
-    { id: 0, name: "Admin" },
-  ];
-
-  // Fetch users when component mounts
-  useEffect(() => {
-    fetchUsers();
-  }, []);
-
-  // Handle form input changes
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setNewUser((prevUser) => ({
-      ...prevUser,
-      [name]: value,
-    }));
-  };
-
-  // Fetch users from the backend
-  const fetchUsers = () => {
+  /* ================= دریافت داده‌ها ================= */
+  const fetchUsers = async (month = "") => {
     setLoading(true);
-    const token = localStorage.getItem("auth_token");
-
-    if (!token) {
-      setError("Authentication required. Please log in.");
-      navigate("/login");
-      setLoading(false);
-      return;
-    }
-
-    fetch("http://localhost:8000/users/api/users/", {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    })
-      .then((response) => {
-        if (response.status === 401) {
-          setError("Authentication expired. Please log in again.");
-          navigate("/login");
-          setLoading(false);
-          return;
-        }
-        return response.json();
-      })
-      .then((data) => {
-        setUsers(data);
-        setLoading(false);
-        setError("");
-      })
-      .catch((error) => {
-        setError("Error fetching users.");
-        setLoading(false);
-      });
-  };
-
-  // Toggle the user form visibility
-  const toggleFormVisibility = (user = null) => {
-    setIsFormVisible((prevVisibility) => !prevVisibility);
-
-    if (user) {
-      // If user is passed, set user data in newUser state
-      setNewUser({
-        id: user.id,
-        firstName: user.first_name || "",
-        lastName: user.last_name || "",
-        email: user.email || "",
-        phoneNumber: user.phone_number || "",
-        role: user.role || "",
-        password: "",
-        passwordConfirm: "",
-      });
-    } else {
-      // If no user is passed, reset form for new user
-      setNewUser({
-        id: null,
-        firstName: "",
-        lastName: "",
-        email: "",
-        phoneNumber: "",
-        role: "",
-        password: "",
-        passwordConfirm: "",
-      });
-    }
-    setError("");
-  };
-
-  // Handle user form submission (Create or Update)
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    if (newUser.password !== newUser.passwordConfirm) {
-      setError("Passwords do not match.");
-      return;
-    }
-
-    setLoading(true);
-    setError("");
-
-    const method = newUser.id ? "PUT" : "POST";
-    const url = newUser.id
-      ? `http://localhost:8000/users/update/${newUser.id}/`
-      : "http://localhost:8000/users/create/";
-
     try {
-      const response = await fetch(url, {
-        method: method,
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
-        },
-        body: JSON.stringify({
-          first_name: newUser.firstName,
-          last_name: newUser.lastName,
-          email: newUser.email,
-          phone_number: newUser.phoneNumber,
-          role: newUser.role,
-          password: newUser.password,
-          password_confirm: newUser.passwordConfirm,
-        }),
+      const res = await axiosInstance.get("/employee/employees/", {
+        params: month ? { jalali_month: month } : {},
       });
-
-      if (!response.ok) {
-        const data = await response.json();
-        console.error("Error response:", data);
-        throw new Error(data.detail || "Error creating/updating user");
-      }
-
-      const data = await response.json();
-      console.log("User successfully created/updated", data);
-
-      // Fetch updated list of users
-      fetchUsers();
-      setIsFormVisible(false);
-
-      // Show success alert with smaller modal
-      Swal.fire({
-        title: "Success!",
-        text: `User ${newUser.id ? "updated" : "created"} successfully.`,
-        icon: "success",
-        confirmButtonText: "OK",
-        customClass: {
-          popup: "w-96", // Adjust the modal width to your desired size
-        },
-      });
-    } catch (err) {
-      console.error("Error:", err);
-      setError(err.message);
-
-      // Show error alert with smaller modal
-      Swal.fire({
-        title: "Error!",
-        text: err.message,
-        icon: "error",
-        confirmButtonText: "OK",
-        customClass: {
-          popup: "w-96", // Adjust the modal width to your desired size
-        },
-      });
+      setUsers(res.data || []);
+      setCurrentPage(1);
+    } catch {
+      showErrorToast("خطا در دریافت کاربران");
     } finally {
       setLoading(false);
     }
   };
 
-  // Handle user deletion
-  const handleDelete = async (id) => {
-    // Use SweetAlert2 to confirm user deletion
-    Swal.fire({
-      title: "Are you sure?",
-      text: "You won't be able to revert this!",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonColor: "#d33",
-      cancelButtonColor: "#3085d6",
-      confirmButtonText: "Yes, delete it!",
-      customClass: {
-        popup: "w-96", // Adjust modal width if needed
-      },
-    }).then((result) => {
-      if (result.isConfirmed) {
-        setLoading(true);
-        fetch(`http://localhost:8000/users/delete/${id}/`, {
-          method: "DELETE",
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
-          },
-        })
-          .then((response) => {
-            if (response.ok) {
-              setUsers(users.filter((user) => user.id !== id));
-              Swal.fire({
-                title: "Deleted!",
-                text: "User has been deleted successfully.",
-                icon: "success",
-                confirmButtonText: "OK",
-                customClass: {
-                  popup: "w-96", // Adjust modal width if needed
-                },
-              });
-            } else {
-              throw new Error("Error deleting user");
-            }
-          })
-          .catch((err) => {
-            Swal.fire({
-              title: "Error!",
-              text: err.message,
-              icon: "error",
-              confirmButtonText: "OK",
-              customClass: {
-                popup: "w-96", // Adjust modal width if needed
-              },
-            });
-          })
-          .finally(() => {
-            setLoading(false);
-          });
-      }
+  const fetchTeacherLevels = async () => {
+    try {
+      const res = await axiosInstance.get("/employee/teacher-levels/");
+      setTeacherLevels(res.data || []);
+    } catch {
+      showErrorToast("خطا در دریافت سطح‌های کارکنان");
+    }
+  };
+
+  useEffect(() => {
+    fetchUsers(selectedMonth);
+  }, [selectedMonth]);
+
+  useEffect(() => {
+    fetchTeacherLevels();
+  }, []);
+
+  /* ================= کنترل‌ها ================= */
+  const openAddModal = () => {
+    setEditingUser(null);
+    setFormData({
+      first_name: "",
+      last_name: "",
+      email: "",
+      phone_number: "",
+      identity_card: "",
+      role: 0,
+      salary: "",
+      contract_duration: "",
+      contract_type: "fix",
+      teacher_level: "",
+      jalali_month: selectedMonth,
     });
+    setShowModal(true);
   };
 
-  // Helper function to get the role name from the ID
-  const getRoleName = (roleId) => {
-    const role = roles.find((role) => role.id === parseInt(roleId));
-    return role ? role.name : "Unknown";
+  const openEditModal = (user) => {
+    setEditingUser(user);
+    setFormData({
+      first_name: user.first_name || "",
+      last_name: user.last_name || "",
+      email: user.email || "",
+      phone_number: user.phone_number || "",
+      identity_card: user.identity_card || "",
+      role: user.role ?? 0,
+      salary: user.salary ?? "",
+      contract_duration: user.contract_duration || "",
+      contract_type: user.contract_type || "fix",
+      teacher_level: user.teacher_level || "",
+      jalali_month: user.jalali_month || selectedMonth,
+    });
+    setShowModal(true);
   };
 
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((p) => ({ ...p, [name]: value }));
+  };
+
+  const handleDelete = async (user) => {
+    if (
+      !window.confirm(
+        `آیا از حذف کاربر ${user.first_name} ${user.last_name} مطمئن هستید؟`,
+      )
+    ) {
+      return;
+    }
+
+    try {
+      await axiosInstance.delete(`/employee/employees/${user.id}/`);
+      showSuccessToast("کاربر با موفقیت حذف شد");
+      fetchUsers(selectedMonth);
+    } catch (err) {
+      showErrorToast(err.response?.data?.detail || "خطا در حذف کاربر");
+    }
+  };
+
+  /* ===== اگر نقش معلم نباشد خودکار ریست شود ===== */
+  useEffect(() => {
+    if (Number(formData.role) !== 1) {
+      setFormData((p) => ({
+        ...p,
+        contract_type: "fix",
+        teacher_level: "",
+      }));
+    }
+  }, [formData.role]);
+
+  /* ================= ثبت فرم ================= */
+  const handleSubmit = async () => {
+    const { first_name, email, contract_type } = formData;
+
+    if (!first_name || !email) {
+      return showErrorToast("نام و ایمیل الزامی است");
+    }
+
+    if (
+      Number(formData.role) === 1 &&
+      contract_type === "percentage" &&
+      !formData.teacher_level
+    ) {
+      return showErrorToast("سطح کارکنان برای قرارداد درصدی الزامی است");
+    }
+
+    if (
+      contract_type === "fix" &&
+      (!formData.salary || Number(formData.salary) <= 0)
+    ) {
+      return showErrorToast("حقوق برای قرارداد ثابت الزامی است");
+    }
+
+    setSaving(true);
+    try {
+      const payload = {
+        ...formData,
+        role: Number(formData.role),
+        teacher_level:
+          Number(formData.role) === 1 && formData.contract_type === "percentage"
+            ? Number(formData.teacher_level)
+            : null,
+        salary: contract_type === "fix" ? Number(formData.salary) : null,
+      };
+
+      if (editingUser) {
+        await axiosInstance.put(
+          `/employee/employees/${editingUser.id}/`,
+          payload,
+        );
+        showSuccessToast("کاربر با موفقیت ویرایش شد");
+      } else {
+        await axiosInstance.post("/employee/employees/", payload);
+        showSuccessToast("کاربر با موفقیت اضافه شد");
+      }
+
+      setShowModal(false);
+      fetchUsers(selectedMonth);
+    } catch (err) {
+      showErrorToast(err.response?.data?.detail || "ثبت با خطا مواجه شد");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  /* ================= فیلتر و صفحه‌بندی ================= */
+  const filteredUsers = users.filter((u) =>
+    `${u.first_name} ${u.last_name} ${u.email}`
+      .toLowerCase()
+      .includes(searchTerm.toLowerCase()),
+  );
+
+  const paginatedUsers = filteredUsers.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage,
+  );
+
+  /* ================= رندر ================= */
   return (
-    <div className="container mx-auto p-6">
-      <div className="flex justify-between items-center mb-6">
+    <div className="p-6 space-y-4" dir="rtl">
+      <div className="flex justify-between flex-wrap gap-2">
         <button
-          onClick={toggleFormVisibility}
-          className="flex items-center bg-blue-500 text-white p-3 rounded-lg shadow-md hover:bg-blue-600 transition duration-300"
+          onClick={openAddModal}
+          className="px-4 py-1 bg-green text-white rounded"
         >
-          <FaUserPlus className="mr-2" />
-          {newUser.id ? "Edit User" : "Add New User"}
+          + افزودن کاربر
         </button>
+
+        <div className="flex flex-wrap gap-2">
+          {PERSIAN_MONTHS.map((m) => (
+            <button
+              key={m}
+              onClick={() => setSelectedMonth(m)}
+              className={`px-3 py-1 rounded-full border ${
+                selectedMonth === m ? "bg-green text-white" : "bg-white"
+              }`}
+            >
+              {m}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Conditionally Render the Form */}
-      {isFormVisible && (
-        <form
-          onSubmit={handleSubmit}
-          className="bg-white p-6 rounded-lg shadow-md space-y-4 max-w-lg mx-auto"
-        >
-          <h2 className="text-2xl font-semibold text-center mb-4">
-            {newUser.id ? "Edit User" : "Add New User"}
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* First Name */}
-            <div className="sm:col-span-2">
-              <label
-                htmlFor="firstName"
-                className="block text-sm font-medium text-gray-700"
-              >
-                First Name
-              </label>
-              <input
-                type="text"
-                id="firstName"
-                name="firstName"
-                value={newUser.firstName}
-                onChange={handleChange}
-                required
-                className="w-full p-3 border border-gray-300 rounded-md"
-              />
-            </div>
+      <StudentSearchBox
+        value={searchTerm}
+        onChange={setSearchTerm}
+        placeholder="جستجوی کاربر..."
+      />
 
-            {/* Last Name */}
-            <div className="sm:col-span-2">
-              <label
-                htmlFor="lastName"
-                className="block text-sm font-medium text-gray-700"
-              >
-                Last Name
-              </label>
-              <input
-                type="text"
-                id="lastName"
-                name="lastName"
-                value={newUser.lastName}
-                onChange={handleChange}
-                required
-                className="w-full p-3 border border-gray-300 rounded-md"
-              />
-            </div>
+      {/* جدول */}
+      <div className="bg-white rounded shadow overflow-x-auto">
+        <table className="w-full text-sm border">
+          <thead className="bg-green text-white">
+            <tr>
+              <th className="p-2 border">نام</th>
+              <th className="p-2 border">ایمیل</th>
+              <th className="p-2 border">نقش</th>
+              <th className="p-2 border">حقوق</th>
+              <th className="p-2 border">نوع قرارداد</th>
+              <th className="p-2 border">مدت قرارداد</th>
+              <th className="p-2 border">عملیات</th>
+            </tr>
+          </thead>
 
-            {/* Email */}
-            <div className="sm:col-span-2">
-              <label
-                htmlFor="email"
-                className="block text-sm font-medium text-gray-700"
-              >
-                Email
-              </label>
-              <input
-                type="email"
-                id="email"
-                name="email"
-                value={newUser.email}
-                onChange={handleChange}
-                required
-                className="w-full p-3 border border-gray-300 rounded-md"
-              />
-            </div>
+          <tbody>
+            {loading ? (
+              <tr>
+                <td colSpan="7" className="p-4 text-center">
+                  در حال بارگذاری...
+                </td>
+              </tr>
+            ) : paginatedUsers.length === 0 ? (
+              <tr>
+                <td colSpan="7" className="p-4 text-center">
+                  کاربری یافت نشد
+                </td>
+              </tr>
+            ) : (
+              paginatedUsers.map((u) => (
+                <tr key={u.id} className="text-center">
+                  <td className="border p-2">
+                    {u.first_name} {u.last_name}
+                  </td>
 
-            {/* Phone Number */}
-            <div className="sm:col-span-2">
-              <label
-                htmlFor="phoneNumber"
-                className="block text-sm font-medium text-gray-700"
-              >
-                Phone Number
-              </label>
-              <input
-                type="text"
-                id="phoneNumber"
-                name="phoneNumber"
-                value={newUser.phoneNumber}
-                onChange={handleChange}
-                required
-                className="w-full p-3 border border-gray-300 rounded-md"
-              />
-            </div>
+                  <td className="border p-2">{u.email}</td>
 
-            {/* Role */}
-            <div className="sm:col-span-2">
-              <label
-                htmlFor="role"
-                className="block text-sm font-medium text-gray-700"
-              >
-                Role
-              </label>
-              <select
-                id="role"
-                name="role"
-                value={newUser.role}
-                onChange={handleChange}
-                required
-                className="w-full p-3 border border-gray-300 rounded-md"
-              >
-                <option value="">Select Role</option>
-                {roles.map((role) => (
-                  <option key={role.id} value={role.id}>
-                    {role.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+                  <td className="border p-2">
+                    {roles.find((r) => r.id === u.role)?.name}
+                  </td>
 
-            {/* Password */}
-            <div className="sm:col-span-2">
-              <label
-                htmlFor="password"
-                className="block text-sm font-medium text-gray-700"
-              >
-                Password
-              </label>
-              <input
-                type="password"
-                id="password"
-                name="password"
-                value={newUser.password}
-                onChange={handleChange}
-                required
-                className="w-full p-3 border border-gray-300 rounded-md"
-              />
-            </div>
+                  <td className="border p-2">{u.salary ?? "-"}</td>
 
-            {/* Confirm Password */}
-            <div className="sm:col-span-2">
-              <label
-                htmlFor="passwordConfirm"
-                className="block text-sm font-medium text-gray-700"
-              >
-                Confirm Password
-              </label>
-              <input
-                type="password"
-                id="passwordConfirm"
-                name="passwordConfirm"
-                value={newUser.passwordConfirm}
-                onChange={handleChange}
-                required
-                className="w-full p-3 border border-gray-300 rounded-md"
-              />
-            </div>
-          </div>
+                  <td className="border p-2">
+                    {u.contract_type === "fix" ? "ثابت" : "درصدی"}
+                  </td>
 
-          {/* Error Message */}
-          {error && <p className="text-red-500 text-sm">{error}</p>}
+                  <td className="border p-2">{u.contract_duration || "-"}</td>
 
-          <div className="flex justify-end space-x-4 mt-4">
-            <button
-              type="button"
-              onClick={() => setIsFormVisible(false)}
-              className="px-4 py-2 bg-gray-300 text-black rounded-md"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2 bg-blue-500 text-white rounded-md"
-              disabled={loading}
-            >
-              {loading ? "Saving..." : newUser.id ? "Update User" : "Add User"}
-            </button>
-          </div>
-        </form>
-      )}
+                  <td className="border p-2">
+                    <div className="flex justify-center gap-2">
+                      <button
+                        onClick={() => openEditModal(u)}
+                        className="px-3 py-1 bg-green text-white rounded"
+                      >
+                        ویرایش
+                      </button>
 
-      {/* Users List */}
-      <div className="my-8">
-        <h2 className="text-2xl font-bold text-gray-800 mb-6">Users List</h2>
-
-        {loading ? (
-          <div className="text-center text-lg text-gray-600 font-bold">
-            Loading...
-          </div>
-        ) : error ? (
-          <div className="text-center text-red-500 text-lg font-bold">
-            {error}
-          </div>
-        ) : (
-          <div className="overflow-x-auto rounded-lg shadow-lg border border-gray-200">
-            <table className="min-w-full table-auto border-collapse">
-              <thead className="bg-gray-100">
-                <tr>
-                  <th className="py-3 px-4 text-left text-sm font-bold text-gray-600">
-                    First Name
-                  </th>
-                  <th className="py-3 px-4 text-left text-sm font-bold text-gray-600">
-                    Last Name
-                  </th>
-                  <th className="py-3 px-4 text-left text-sm font-bold text-gray-600">
-                    Email
-                  </th>
-                  <th className="py-3 px-4 text-left text-sm font-bold text-gray-600">
-                    Phone
-                  </th>
-                  <th className="py-3 px-4 text-left text-sm font-bold text-gray-600">
-                    Role
-                  </th>
-                  <th className="py-3 px-4 text-left text-sm font-bold text-gray-600">
-                    Actions
-                  </th>
+                      <button
+                        onClick={() => handleDelete(u)}
+                        className="px-3 py-1 bg-red-600 text-white rounded"
+                      >
+                        حذف
+                      </button>
+                    </div>
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="text-sm text-gray-700">
-                {users.map((user) => (
-                  <tr
-                    key={user.id}
-                    className="hover:bg-gray-50 transition duration-200 ease-in-out"
-                  >
-                    <td className="py-3 px-4 border-b font-bold">
-                      {user.first_name}
-                    </td>
-                    <td className="py-3 px-4 border-b font-bold">
-                      {user.last_name}
-                    </td>
-                    <td className="py-3 px-4 border-b font-bold">
-                      {user.email}
-                    </td>
-                    <td className="py-3 px-4 border-b font-bold">
-                      {user.phone_number}
-                    </td>
-                    <td className="py-3 px-4 border-b font-bold">
-                      {getRoleName(user.role)}
-                    </td>
-                    <td className="py-3 px-4 border-b space-x-2">
-                      <button
-                        onClick={() => toggleFormVisibility(user)}
-                        className="px-4 py-2 bg-yellow-500 text-white rounded-md hover:bg-yellow-600 transition duration-200 ease-in-out font-bold"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleDelete(user.id)}
-                        className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition duration-200 ease-in-out font-bold"
-                      >
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
+
+      {/* مودال */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center">
+          <div className="bg-white w-[520px] rounded p-6 space-y-3">
+            <h3 className="text-lg font-bold">
+              {editingUser ? "ویرایش کاربر" : "افزودن کاربر"}
+            </h3>
+
+            {/* نام و نام خانوادگی */}
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                name="first_name"
+                value={formData.first_name}
+                onChange={handleChange}
+                className="border p-2 w-full"
+                placeholder="نام"
+              />
+
+              <input
+                name="last_name"
+                value={formData.last_name}
+                onChange={handleChange}
+                className="border p-2 w-full"
+                placeholder="نام خانوادگی"
+              />
+            </div>
+
+            {/* ایمیل */}
+            <input
+              name="email"
+              value={formData.email}
+              onChange={handleChange}
+              className="border p-2 w-full"
+              placeholder="ایمیل"
+            />
+
+            {/* کارت ملی و مدت قرارداد */}
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                name="identity_card"
+                value={formData.identity_card}
+                onChange={handleChange}
+                className="border p-2 w-full"
+                placeholder="کارت ملی"
+              />
+
+              <input
+                name="contract_duration"
+                value={formData.contract_duration}
+                onChange={handleChange}
+                className="border p-2 w-full"
+                placeholder="مدت قرارداد"
+              />
+            </div>
+
+            {/* نقش */}
+            <select
+              name="role"
+              value={formData.role}
+              onChange={handleChange}
+              className="border p-2 w-full"
+            >
+              {roles.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name}
+                </option>
+              ))}
+            </select>
+
+            {/* سطح معلم (در صورت نیاز) */}
+            {Number(formData.role) === 1 &&
+              formData.contract_type === "percentage" && (
+                <select
+                  name="teacher_level"
+                  value={formData.teacher_level}
+                  onChange={handleChange}
+                  className="border p-2 w-full"
+                >
+                  <option value="">انتخاب سطح کارکنان</option>
+                  {teacherLevels.map((lvl) => (
+                    <option key={lvl.id} value={lvl.id}>
+                      {lvl.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+
+            {/* حقوق ثابت */}
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={formData.contract_type === "fix"}
+                onChange={(e) =>
+                  setFormData((p) => ({
+                    ...p,
+                    contract_type: e.target.checked ? "fix" : "percentage",
+                    salary: e.target.checked ? p.salary : "",
+                  }))
+                }
+              />
+              <label>حقوق ثابت</label>
+            </div>
+
+            {/* حقوق */}
+            <input
+              type="number"
+              name="salary"
+              value={formData.salary}
+              onChange={handleChange}
+              disabled={formData.contract_type === "percentage"}
+              className="border p-2 w-full"
+              placeholder="حقوق"
+            />
+
+            {/* دکمه‌ها */}
+            <div className="flex justify-end gap-2 pt-3">
+              <button onClick={() => setShowModal(false)}>انصراف</button>
+              <button
+                onClick={handleSubmit}
+                disabled={saving}
+                className="bg-green text-white px-4 py-1 rounded"
+              >
+                {saving ? "در حال ذخیره..." : "ثبت"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

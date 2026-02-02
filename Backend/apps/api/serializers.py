@@ -3,6 +3,8 @@ from apps.users.serializers import UserSerializer
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 
+from .models import BlogPost, Category, PostCategory, Reception
+
 
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
@@ -14,11 +16,6 @@ class OrderSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = ["id", "Customer_name", "order_name"]
-
-
-from rest_framework import serializers
-
-from .models import Category, Reception
 
 
 class ReceptionSerializer(serializers.ModelSerializer):
@@ -100,28 +97,16 @@ class ReceptionSerializer(serializers.ModelSerializer):
         return instance
 
     def calculate_reminder_price(self, total_price, receive_price):
-        """
-        Calculate the reminder_price as the difference between total_price and receive_price.
-        """
+
         total_price = total_price if total_price is not None else 0
         receive_price = receive_price if receive_price is not None else 0
         return max(0, total_price - receive_price)
-
-
-from rest_framework import serializers
-
-from .models import BlogPost, PostCategory
 
 
 class PostCategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = PostCategory
         fields = ["id", "category_name", "created_at"]
-
-
-from rest_framework import serializers
-
-from .models import BlogPost, PostCategory
 
 
 class BlogPostSerializer(serializers.ModelSerializer):
@@ -132,11 +117,13 @@ class BlogPostSerializer(serializers.ModelSerializer):
         fields = ["id", "title", "category", "image", "description", "created_at"]
 
     def create(self, validated_data):
+        # Save the blog post instance without triggering Celery task
         category = validated_data.pop("category")
         blog_post = BlogPost.objects.create(category=category, **validated_data)
         return blog_post
 
     def update(self, instance, validated_data):
+        # Update the instance without triggering Celery task
         category = validated_data.pop("category", instance.category)
         instance.category = category
         for attr, value in validated_data.items():

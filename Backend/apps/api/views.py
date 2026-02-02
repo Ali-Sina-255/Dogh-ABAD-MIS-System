@@ -1,4 +1,5 @@
 from apps.api import serializers as api_serializer
+from apps.users.tasks import create_or_update_blog_post, delete_blog_post
 from django.contrib.auth.models import User
 from django_filters.rest_framework.backends import DjangoFilterBackend
 from rest_framework import generics, viewsets
@@ -8,14 +9,13 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 
 from .filters import BlogFilter
 from .models import BlogPost, Category, PostCategory, Reception
+from .permissions import CanUpdatePrice
 from .serializers import (
     BlogPostSerializer,
     CategorySerializer,
     PostCategorySerializer,
     ReceptionSerializer,
 )
-
-# Set up a logger
 
 
 class ReceptionCreateView(generics.ListCreateAPIView):
@@ -24,7 +24,6 @@ class ReceptionCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         user = self.request.user
-
         if user.role == user.Designer:
             # Designers can only see orders assigned to them
             return Reception.objects.filter(designer=user)
@@ -56,9 +55,6 @@ class ReceptionCreateView(generics.ListCreateAPIView):
             raise PermissionDenied("You do not have permission to update this order.")
 
 
-from .permissions import CanUpdatePrice
-
-
 class ReceptionDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Reception.objects.all()
     serializer_class = ReceptionSerializer
@@ -78,7 +74,6 @@ class CategoryListCreateView(generics.ListCreateAPIView):
 class CategoryDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
-    from rest_framework import status, viewsets
 
 
 class BlogPostRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
@@ -99,12 +94,6 @@ class PostCategoryDetail(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [AllowAny]
 
 
-from rest_framework import viewsets
-
-from .models import BlogPost, PostCategory
-from .serializers import BlogPostSerializer, PostCategorySerializer
-
-
 class PostCategoryViewSet(viewsets.ModelViewSet):
     permission_classes = [AllowAny]
     queryset = PostCategory.objects.all()
@@ -118,3 +107,30 @@ class BlogPostViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend, SearchFilter]
     filterset_class = BlogFilter
     search_fields = ["title", "description", "category__category_name"]
+
+    def perform_create(self, serializer):
+        # Perform the actual creation logic
+        instance = serializer.save()
+        data = {
+            "id": instance.id,
+            "title": instance.title,
+            "category": instance.category.id,
+            "image": instance.image.url if instance.image else None,
+            "description": instance.description,
+        }
+        create_or_update_blog_post.delay(data)
+
+    def perform_update(self, serializer):
+        instance = serializer.save()
+        data = {
+            "id": instance.id,
+            "title": instance.title,
+            "category": instance.category.id,
+            "image": instance.image.url if instance.image else None,
+            "description": instance.description,
+        }
+        create_or_update_blog_post.delay(data)
+
+    def perform_destroy(self, instance):
+        delete_blog_post.delay(instance.id)
+        instance.delete()

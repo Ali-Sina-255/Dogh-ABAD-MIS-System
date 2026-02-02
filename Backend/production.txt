@@ -1,0 +1,17 @@
+SIGNING_KEY=2d20db37dc6932d9a4f620611843c92c39e74b67e77681ec9bfaafe09b0e4902
+SECRET_KEY=django-insecure-ri_pr%cd!=$1&m$=3*s91v4e#)6wvm!0s6n8q@(htb=f9+h*2j
+DEBUG=True
+
+# Database Settings
+DB_NAME=tamadon_databases
+DB_USER=root
+DB_PASSWORD=root
+DB_HOST=localhost
+DB_PORT=3310
+
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USE_TLS=True
+EMAIL_HOST_USER=alisinasultani255@gmail.com
+EMAIL_HOST_PASSWORD=itjq ftqt snlu nlse
+DEFAULT_FROM_EMAIL=tamadon.af@gamil.com

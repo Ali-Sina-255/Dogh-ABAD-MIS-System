@@ -3,11 +3,140 @@
 @tailwind utilities;
 
 @font-face {
-  font-family: "Jameel Noori Nastaleeq";
-  src: url("./assets//fonts//Jameel\ Noori\ Nastaleeq\ Kasheeda.ttf")
-    format("truetype");
+  font-family: "Vazirmatn";
+  src: url("/ttf/Vazirmatn-Regular.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Ray";
+  src: url("/font/Ray/Ray-ExtraBlack.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Ray_black";
+  src: url("/font/Ray/Ray-Black.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Ray_text";
+  src: url("/font/Ray/Ray-Bold.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
 }
 
 body {
-  font-family: "Jameel Noori Nastaleeq";
+  font-family: "Vazirmatn", Arial, sans-serif;
+}
+@layer components {
+  .primary-btn {
+    @apply border-[#ED8D1D] border-2 dark:bg-primary hover:text-white hover:bg-green hover:border-green hover:!scale-105 text-green font-semibold py-2 px-4 rounded-full   duration-300;
+  }
+}
+@layer components {
+  .secondry-btn {
+    @apply bg-green hover:bg-green/90 text-sm text-white py-2 px-5 rounded-lg hover:!scale-105 duration-300;
+  }
+}
+@layer components {
+  .tertiary-btn {
+    @apply bg-red-500  hover:bg-red-600 text-sm text-white py-2 px-5 rounded-lg hover:!scale-105 duration-300;
+  }
+}
+
+/* Scrollbar styling for the main page */
+body::-webkit-scrollbar {
+  width: 10px;
+}
+
+body::-webkit-scrollbar-thumb {
+  background-color: #00513a;
+  border-radius: 5px;
+}
+
+body::-webkit-scrollbar-track {
+  background-color: #8a93a7;
+}
+
+/* custome style for paganition on  */
+.custom-pagination .swiper-pagination-bullet {
+  @apply w-4 h-1.5 bg-gray-500 rounded-full transition-all  duration-300;
+}
+
+.custom-pagination .swiper-pagination-bullet-active {
+  @apply w-6 h-1.5 bg-[#02DB81] scale-110;
+}
+
+#bill-content {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 290mm;
+  height: 190mm;
+  padding: 0px;
+  font-family: "Vazirmatn", Arial, sans-serif;
+  background: white;
+  color: black;
+  border: 1px solid #ddd;
+}
+
+
+
+/* =========================
+   THERMAL 80mm PRINT STYLE
+   ========================= */
+@media print {
+  @page {
+    size: 80mm auto;
+    margin: 0;
+  }
+
+  body {
+    margin: 0;
+    padding: 0;
+    font-family: monospace;
+    font-size: 12px;
+  }
+
+  .thermal-bill {
+    width: 80mm;
+    padding: 6px;
+  }
+
+  .center {
+    text-align: center;
+  }
+
+  .bold {
+    font-weight: bold;
+  }
+
+  .line {
+    border-top: 1px dashed #000;
+    margin: 6px 0;
+  }
+
+  .row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    margin: 2px 0;
+  }
+
+  .total {
+    font-size: 14px;
+    font-weight: bold;
+  }
+
+  /* hide everything else */
+  .no-print {
+    display: none !important;
+  }
 }

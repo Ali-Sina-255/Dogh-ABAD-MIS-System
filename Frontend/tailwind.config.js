@@ -1,15 +1,28 @@
 /** @type {import('tailwindcss').Config} */
 
-const defaultTheme = require('tailwindcss/defaultTheme');
-
+import defaultTheme from "tailwindcss/defaultTheme";
 export default {
   content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
   darkMode: "class",
   theme: {
     extend: {
+      colors: {
+        primary: "#050816",
+        secondary: "#aaa6c3",
+        tertiary: "#151030",
+        "black-100": "#100d25",
+        "black-200": "#090325",
+        "white-100": "#f3f3f3",
+        green: "#00513a",
+        orange: "#FFDB00",
+        update: "#ED8D1D",
+      },
       fontFamily: {
-        nastaliq: ['Jameel Noori Nastaleeq', 'serif'],
-        vazir: ['Vazirmatn', 'sans-serif'],
+        vazirmatn: ["Vazirmatn", "Arial", "sans-serif"],
+        Ray: ["Ray"],
+        Ray_black: ["Ray_black"],
+        Ray_text: ["Ray_text"],
+        italianno: ["Italianno", "cursive"],
       },
       container: {
         padding: {
