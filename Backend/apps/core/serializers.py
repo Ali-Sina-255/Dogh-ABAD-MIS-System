@@ -202,3 +202,15 @@ class PharmaceuticalSerializer(serializers.ModelSerializer):
                 )
 
         return instance
+
+
+class RecentPharmaceuticalSerializer(serializers.ModelSerializer):
+    patient_name = serializers.CharField(source="patient_name.name", read_only=True)
+    doctor_name = serializers.CharField(source="doctor_name.name", read_only=True)
+    drugs = PharmaceuticalDrugSerializer(
+        source="pharmaceuticaldrug_set", many=True, read_only=True
+    )
+
+    class Meta:
+        model = Pharmaceutical
+        fields = ["id", "patient_name", "doctor_name", "drugs", "price", "created_at"]

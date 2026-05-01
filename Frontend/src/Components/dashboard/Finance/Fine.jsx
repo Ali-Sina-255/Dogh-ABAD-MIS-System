@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { showErrorToast, showSuccessToast } from "../../messages/Toast";
 import { axiosInstance } from "../../../utils/api";
 import { getCurrentJalaliMonth, PERSIAN_MONTHS } from "../../../utils/jalali";
-
+import React from "react";
 const TestTypeManager = () => {
   const [types, setTypes] = useState([]);
   const [patients, setPatients] = useState([]);

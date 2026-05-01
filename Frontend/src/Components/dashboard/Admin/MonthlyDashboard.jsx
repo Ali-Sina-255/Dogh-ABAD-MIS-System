@@ -1,10 +1,13 @@
 import React from "react";
 import {
   FaUsers,
-  FaBookOpen,
-  FaChalkboardTeacher,
+  FaPills,
+  FaFlask,
   FaMoneyBillWave,
   FaSyncAlt,
+  FaUserMd,
+  FaProcedures,
+  FaFileInvoiceDollar,
 } from "react-icons/fa";
 import { PiChartLineUp } from "react-icons/pi";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -15,58 +18,87 @@ import MonthlyRevenueChart from "../reports/MonthlyRevenueChart";
 import FinanceSummaryChart from "../reports/FinanceSummaryChart";
 
 import {
-  fetchDashboardSummary,
-  fetchRecentEnrollments,
-  fetchMonthlyRevenue,
+  fetchHospitalDashboardSummary,  // Changed from fetchDashboardSummary
+  fetchRecentPatients,
+  fetchRecentLabTests,
+  fetchRecentPharmaceuticals,
+  fetchHospitalMonthlyRevenue,    // Changed from fetchMonthlyRevenue
 } from "../../../../services/api";
 
+
 // ---------------- Main Dashboard ----------------
-const MonthlyDashboardContent = ({ setActiveComponent }) => {
+const HospitalDashboardContent = ({ setActiveComponent }) => {
   const queryClient = useQueryClient();
 
   // Dashboard summary - auto refetch every 10 seconds
   const {
-    data: summary,
-    isLoading: summaryLoading,
-    isError: summaryError,
-    error: summaryErrorObj,
-    isFetching: summaryFetching,
-  } = useQuery({
-    queryKey: ["courseDashboardSummary"],
-    queryFn: fetchDashboardSummary,
-    staleTime: 5 * 60 * 1000,
-    refetchOnMount: "always",
-    refetchOnWindowFocus: true,
-    refetchInterval: 10000, // auto-update every 10s
-  });
+  data: summary,
+  isLoading: summaryLoading,
+  isError: summaryError,
+  error: summaryErrorObj,
+  isFetching: summaryFetching,
+} = useQuery({
+  queryKey: ["hospitalDashboardSummary"],
+  queryFn: fetchHospitalDashboardSummary,  // Updated function name
+  staleTime: 5 * 60 * 1000,
+  refetchOnMount: "always",
+  refetchOnWindowFocus: true,
+  refetchInterval: 10000,
+});
 
-  // Recent enrollments - auto refetch every 10 seconds
+  // Recent patients - auto refetch every 10 seconds
   const {
-    data: recentEnrollments = [],
-    isLoading: enrollmentsLoading,
-    isError: enrollmentsError,
-    error: enrollmentsErrorObj,
-    isFetching: enrollmentsFetching,
+    data: recentPatients = [],
+    isLoading: patientsLoading,
+    isError: patientsError,
+    error: patientsErrorObj,
+    isFetching: patientsFetching,
   } = useQuery({
-    queryKey: ["recentEnrollments"],
-    queryFn: fetchRecentEnrollments,
+    queryKey: ["recentPatients"],
+    queryFn: fetchRecentPatients,
     staleTime: 5 * 60 * 1000,
     refetchOnMount: "always",
-    refetchInterval: 10000, // auto-update every 10s
+    refetchInterval: 10000,
   });
 
-  const isLoading = summaryLoading || enrollmentsLoading;
-  const isFetching = summaryFetching || enrollmentsFetching;
-  const hasError = summaryError || enrollmentsError;
+  // Recent lab tests
+  const {
+    data: recentLabTests = [],
+    isLoading: labTestsLoading,
+  } = useQuery({
+    queryKey: ["recentLabTests"],
+    queryFn: fetchRecentLabTests,
+    staleTime: 5 * 60 * 1000,
+    refetchOnMount: "always",
+    refetchInterval: 10000,
+  });
+
+  // Recent pharmaceuticals
+  const {
+    data: recentPharmaceuticals = [],
+    isLoading: pharmaceuticalsLoading,
+  } = useQuery({
+    queryKey: ["recentPharmaceuticals"],
+    queryFn: fetchRecentPharmaceuticals,
+    staleTime: 5 * 60 * 1000,
+    refetchOnMount: "always",
+    refetchInterval: 10000,
+  });
+
+  const isLoading = summaryLoading || patientsLoading || labTestsLoading || pharmaceuticalsLoading;
+  const isFetching = summaryFetching || patientsFetching;
+  const hasError = summaryError || patientsError;
 
   // Manual refresh
   const handleRefresh = () => {
-    queryClient.invalidateQueries({ queryKey: ["courseDashboardSummary"] });
-    queryClient.invalidateQueries({ queryKey: ["recentEnrollments"] });
+    queryClient.invalidateQueries({ queryKey: ["hospitalDashboardSummary"] });
+    queryClient.invalidateQueries({ queryKey: ["recentPatients"] });
+    queryClient.invalidateQueries({ queryKey: ["recentLabTests"] });
+    queryClient.invalidateQueries({ queryKey: ["recentPharmaceuticals"] });
   };
 
   if (hasError) {
-    console.error("Dashboard Error:", summaryErrorObj || enrollmentsErrorObj);
+    console.error("Dashboard Error:", summaryErrorObj || patientsErrorObj);
     return (
       <div className="p-6 min-h-screen flex items-start justify-center">
         <div className="bg-white p-6 rounded shadow text-center">
@@ -88,7 +120,7 @@ const MonthlyDashboardContent = ({ setActiveComponent }) => {
     <div className="p-6 min-h-screen">
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Dashboard</h1>
+        <h1 className="text-2xl font-bold">Hospital Dashboard</h1>
         <button
           onClick={handleRefresh}
           className="flex items-center gap-2 bg-white px-4 py-2 rounded shadow"
@@ -99,68 +131,107 @@ const MonthlyDashboardContent = ({ setActiveComponent }) => {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-6">
         <StatCard
-          title="Students"
-          value={summary?.students}
+          title="Total Patients"
+          value={summary?.total_patients}
           icon={<FaUsers />}
           loading={isLoading}
           bg="bg-blue-100"
         />
         <StatCard
-          title="Active Classes"
-          value={summary?.classes}
-          icon={<FaBookOpen />}
+          title="Today's Patients"
+          value={summary?.today_patients}
+          icon={<FaProcedures />}
           loading={isLoading}
           bg="bg-green-100"
         />
         <StatCard
-          title="Teachers"
-          value={summary?.teachers}
-          icon={<FaChalkboardTeacher />}
+          title="Lab Tests"
+          value={summary?.total_lab_tests}
+          icon={<FaFlask />}
+          loading={isLoading}
+          bg="bg-purple-100"
+        />
+        <StatCard
+          title="Prescriptions"
+          value={summary?.total_prescriptions}
+          icon={<FaPills />}
           loading={isLoading}
           bg="bg-orange-100"
         />
         <StatCard
           title="Total Revenue"
-          value={`AF ${summary?.yearly_revenue}`}
+          value={`AFN ${summary?.total_revenue}`}
           icon={<FaMoneyBillWave />}
           loading={isLoading}
           bg="bg-emerald-100"
         />
+      </div>
+
+      {/* Second Row Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
         <StatCard
-          title="Yearly Remaining"
-          value={`AF ${summary?.yearly_remaining}`}
-          icon={<PiChartLineUp />}
+          title="Lab Revenue"
+          value={`AFN ${summary?.lab_revenue}`}
+          icon={<FaFlask />}
           loading={isLoading}
-          bg="bg-purple-100"
+          bg="bg-indigo-100"
         />
         <StatCard
-          title="Yearly Revenue"
-          value={`AF ${summary?.yearly_revenue}`}
-          icon={<PiChartLineUp />}
+          title="Pharmacy Revenue"
+          value={`AFN ${summary?.pharmacy_revenue}`}
+          icon={<FaPills />}
           loading={isLoading}
-          bg="bg-purple-100"
+          bg="bg-pink-100"
+        />
+        <StatCard
+          title="Consultation Fee"
+          value={`AFN ${summary?.consultation_revenue}`}
+          icon={<FaUserMd />}
+          loading={isLoading}
+          bg="bg-yellow-100"
+        />
+        <StatCard
+          title="Outstanding Balance"
+          value={`AFN ${summary?.outstanding_balance}`}
+          icon={<FaFileInvoiceDollar />}
+          loading={isLoading}
+          bg="bg-red-100"
         />
       </div>
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <MonthlyRevenueChart fetchMonthlyRevenue={fetchMonthlyRevenue} />
+        <MonthlyRevenueChart fetchMonthlyRevenue={fetchHospitalMonthlyRevenue} />
         <FinanceSummaryChart />
       </div>
 
-      {/* Recent Enrollments */}
-      <RecentEnrollmentsTable
-        data={recentEnrollments}
-        loading={enrollmentsLoading}
+      {/* Recent Patients Table */}
+      <RecentPatientsTable
+        data={recentPatients}
+        loading={patientsLoading}
         setActiveComponent={setActiveComponent}
       />
+
+      {/* Recent Lab Tests & Pharmaceuticals */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+        <RecentLabTestsTable
+          data={recentLabTests}
+          loading={labTestsLoading}
+          setActiveComponent={setActiveComponent}
+        />
+        <RecentPharmaceuticalsTable
+          data={recentPharmaceuticals}
+          loading={pharmaceuticalsLoading}
+          setActiveComponent={setActiveComponent}
+        />
+      </div>
     </div>
   );
 };
 
-// ---------------- Sub-components ----------------
+// ---------------- Stat Card Component ----------------
 const StatCard = ({ title, value, icon, loading, bg }) => (
   <div className="bg-white p-4 rounded shadow flex items-center gap-4">
     <div className={`${bg} p-3 rounded text-xl`}>{icon}</div>
@@ -169,18 +240,19 @@ const StatCard = ({ title, value, icon, loading, bg }) => (
       {loading ? (
         <Skeleton width={80} />
       ) : (
-        <h2 className="text-xl font-bold">{value}</h2>
+        <h2 className="text-xl font-bold">{value?.toLocaleString() || 0}</h2>
       )}
     </div>
   </div>
 );
 
-const RecentEnrollmentsTable = ({ data, loading, setActiveComponent }) => (
+// ---------------- Recent Patients Table ----------------
+const RecentPatientsTable = ({ data, loading, setActiveComponent }) => (
   <div className="bg-white p-5 rounded shadow">
     <div className="flex justify-between mb-4">
-      <h2 className="text-lg font-semibold">Recent Enrollments</h2>
+      <h2 className="text-lg font-semibold">Recent Patients</h2>
       <button
-        onClick={() => setActiveComponent("enrollments")}
+        onClick={() => setActiveComponent("patients")}
         className="text-blue-600 text-sm"
       >
         View All
@@ -193,41 +265,25 @@ const RecentEnrollmentsTable = ({ data, loading, setActiveComponent }) => (
       <table className="w-full text-sm">
         <thead className="bg-gray-100 text-gray-600">
           <tr>
-            <th className="p-2">Student</th>
-            <th className="p-2">Class</th>
-            <th className="p-2">Teacher</th>
-            <th className="p-2">Paid</th>
-            <th className="p-2">Remaining</th>
-            <th className="p-2">Status</th>
+            <th className="p-2">Patient Name</th>
+            <th className="p-2">Age</th>
+            <th className="p-2">Category</th>
+            <th className="p-2">Patient Type</th>
+            <th className="p-2">Fee</th>
+            <th className="p-2">Date</th>
           </tr>
         </thead>
         <tbody>
-          {data.map((e) => (
-            <tr key={e.id} className="border-b hover:bg-gray-50">
-              <td className="p-2 font-medium">{e.student_info?.name}</td>
-              <td className="p-2">{e.class_name}</td>
-              <td className="p-2">
-                {Array.isArray(e.teachers) ? e.teachers.join(", ") : e.teachers}
+          {data.map((patient) => (
+            <tr key={patient.id} className="border-b hover:bg-gray-50">
+              <td className="p-2 font-medium">{patient.name}</td>
+              <td className="p-2">{patient.age || "-"}</td>
+              <td className="p-2">{patient.category?.name || "-"}</td>
+              <td className="p-2">{patient.patient_type}</td>
+              <td className="p-2 text-green-600 font-semibold">
+                AFN {patient.fee?.toLocaleString() || 0}
               </td>
-              <td className="p-2">AF {e.paid_amount}</td>
-              <td className="p-2">AF {e.remaining_fee}</td>
-              <td className="p-2">
-                <span
-                  className={`px-2 py-1 rounded text-xs ${
-                    e.remaining_fee === 0
-                      ? "bg-green-100 text-green-800"
-                      : e.paid_amount > 0
-                        ? "bg-yellow-100 text-yellow-800"
-                        : "bg-red-100 text-red-800"
-                  }`}
-                >
-                  {e.remaining_fee === 0
-                    ? "PAID"
-                    : e.paid_amount > 0
-                      ? "PARTIAL"
-                      : "UNPAID"}
-                </span>
-              </td>
+              <td className="p-2 text-gray-500">{patient.created_at}</td>
             </tr>
           ))}
         </tbody>
@@ -236,4 +292,104 @@ const RecentEnrollmentsTable = ({ data, loading, setActiveComponent }) => (
   </div>
 );
 
-export default MonthlyDashboardContent;
+// ---------------- Recent Lab Tests Table ----------------
+const RecentLabTestsTable = ({ data, loading, setActiveComponent }) => (
+  <div className="bg-white p-5 rounded shadow">
+    <div className="flex justify-between mb-4">
+      <h2 className="text-lg font-semibold">Recent Lab Tests</h2>
+      <button
+        onClick={() => setActiveComponent("lab-tests")}
+        className="text-blue-600 text-sm"
+      >
+        View All
+      </button>
+    </div>
+
+    {loading ? (
+      <Skeleton count={5} height={50} />
+    ) : (
+      <table className="w-full text-sm">
+        <thead className="bg-gray-100 text-gray-600">
+          <tr>
+            <th className="p-2">Patient</th>
+            <th className="p-2">Test Type</th>
+            <th className="p-2">Price</th>
+            <th className="p-2">Referred By</th>
+            <th className="p-2">Date</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((test) => (
+            <tr key={test.id} className="border-b hover:bg-gray-50">
+              <td className="p-2 font-medium">{test.patient?.name || "-"}</td>
+              <td className="p-2">{test.test_type?.name || "-"}</td>
+              <td className="p-2 text-green-600 font-semibold">
+                AFN {test.price?.toLocaleString()}
+              </td>
+              <td className="p-2">{test.refer_to || "-"}</td>
+              <td className="p-2 text-gray-500">{test.date}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    )}
+  </div>
+);
+
+// ---------------- Recent Pharmaceuticals Table ----------------
+const RecentPharmaceuticalsTable = ({ data, loading, setActiveComponent }) => (
+  <div className="bg-white p-5 rounded shadow">
+    <div className="flex justify-between mb-4">
+      <h2 className="text-lg font-semibold">Recent Prescriptions</h2>
+      <button
+        onClick={() => setActiveComponent("pharmaceuticals")}
+        className="text-blue-600 text-sm"
+      >
+        View All
+      </button>
+    </div>
+
+    {loading ? (
+      <Skeleton count={5} height={80} />
+    ) : (
+      <table className="w-full text-sm">
+        <thead className="bg-gray-100 text-gray-600">
+          <tr>
+            <th className="p-2">Patient</th>
+            <th className="p-2">Doctor</th>
+            <th className="p-2">Medications</th>
+            <th className="p-2">Total Price</th>
+            <th className="p-2">Date</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((prescription) => (
+            <tr key={prescription.id} className="border-b hover:bg-gray-50">
+              <td className="p-2 font-medium">
+                {prescription.patient_name?.name || "-"}
+              </td>
+              <td className="p-2">
+                {prescription.doctor_name?.name || "-"}
+              </td>
+              <td className="p-2">
+                <div className="space-y-1">
+                  {prescription.drugs?.map((drug, idx) => (
+                    <div key={idx} className="text-xs">
+                      {drug.name} x {drug.amount_used}
+                    </div>
+                  )) || "-"}
+                </div>
+              </td>
+              <td className="p-2 text-green-600 font-semibold">
+                AFN {prescription.price?.toLocaleString() || 0}
+              </td>
+              <td className="p-2 text-gray-500">{prescription.created_at}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    )}
+  </div>
+);
+
+export default HospitalDashboardContent;

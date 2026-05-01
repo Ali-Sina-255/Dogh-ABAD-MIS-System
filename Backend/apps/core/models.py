@@ -5,8 +5,8 @@ from django.contrib.auth import get_user_model
 from django.db import models
 
 
+User = get_user_model()
 class CategoryType(models.Model):
-    User = get_user_model()
     name = models.CharField(max_length=300)
     created_at = jmodels.jDateField(auto_now_add=True)
 

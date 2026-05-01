@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import jwtDecode from "jwt-decode";
 import axios from "axios";
-
+import React from "react";
 // Icons
 import { MdPermDeviceInformation } from "react-icons/md";
 import {
@@ -31,9 +31,8 @@ import Prescription from "./Pharmacy/Prescription.jsx";
 import Fine from "./Finance/Fine.jsx";
 import WellcomePage from "./wellcomePage.jsx";
 import MonthlyEnrollManagement from "../courses/enrollments/MonthlyEnrolleManagement.jsx";
-import MonthlyDashboard from "./Admin/MonthlyDashboard.jsx";
 import LabManager from "./Finance/LabManager.jsx";
-
+import HospitalDashboardContent from "./Admin/MonthlyDashboard.jsx";
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 
 const Dashboard = () => {
@@ -120,7 +119,7 @@ const Dashboard = () => {
   const websiteManagementItems = [
     {
       component: "WebBlog",
-      label: "مدیریت وبلاگ",
+      label: "ایجاد بخش",
       icon: <FaBlog />,
       element: <WebBlog />,
     },
@@ -182,7 +181,7 @@ const Dashboard = () => {
       component: "MonthlyDashboard",
       label: "داشبورد ماهانه",
       icon: <FaMoneyBillWave />,
-      element: <MonthlyDashboard />,
+      element: <HospitalDashboardContent />,
     },
   ];
 
@@ -246,7 +245,7 @@ const Dashboard = () => {
       <nav className="flex fixed right-0 left-0 bg-green top-0 justify-between items-center p-4 z-10">
         <div className="lg:flex items-center hidden gap-x-5">
           <Link to="/" className="text-white font-bold text-2xl">
-            بیمارستان تخصصی آقای ابوالفضل
+            بیمارستان تخصصی ابوالفضل
           </Link>
         </div>
         <div className="flex items-center gap-x-4">
@@ -302,7 +301,7 @@ const Dashboard = () => {
                     <FaUsers />
                   </span>
                   <span className="ml-5 text-md font-bold flex items-center">
-                    مدیریت وب‌سایت
+                    مدیریت بخشها
                   </span>
                 </div>
                 <FaChevronDown

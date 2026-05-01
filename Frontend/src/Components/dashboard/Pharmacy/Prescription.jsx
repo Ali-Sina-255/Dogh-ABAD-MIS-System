@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { axiosInstance } from "../../../utils/api";
 import {
   showSuccessToast,
@@ -12,6 +12,7 @@ const DailyCopyPrescription = () => {
   const [prescriptions, setPrescriptions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [patientDropdownVisible, setPatientDropdownVisible] = useState(false);
+  const [showNewPatientModal, setShowNewPatientModal] = useState(false);
 
   const [doctors, setDoctors] = useState([]);
   const [patients, setPatients] = useState([]);
@@ -33,59 +34,85 @@ const DailyCopyPrescription = () => {
   const [patientSearch, setPatientSearch] = useState("");
   const [drugSearch, setDrugSearch] = useState("");
 
-  /* ===================== FETCH ===================== */
-  useEffect(() => {
-    fetchDoctors();
-    fetchPatients();
-    fetchDrugs();
-    fetchPrescriptions(selectedMonth);
-  }, [selectedMonth]);
+  // New patient state - matching the Patient model fields
+  const [newPatient, setNewPatient] = useState({
+    name: "",
+    age: "",
+    patient_type: "",
+    category: "",
+  });
+  const [addingPatient, setAddingPatient] = useState(false);
+  const [categories, setCategories] = useState([]);
 
-  const fetchDoctors = async () => {
+  /* ===================== FETCH ===================== */
+  const fetchDoctors = useCallback(async () => {
     try {
       const res = await axiosInstance.get("/employee/employees/", {
         params: { role: 1 },
       });
       setDoctors(res.data || []);
-    } catch {
+    } catch (error) {
+      console.error("Error fetching doctors:", error);
       showErrorToast("بارگذاری پزشکان موفق نبود");
     }
-  };
+  }, []);
 
-  const fetchPatients = async () => {
+  const fetchPatients = useCallback(async () => {
     try {
       const res = await axiosInstance.get("/core/patients/");
       setPatients(res.data || []);
-    } catch {
+    } catch (error) {
+      console.error("Error fetching patients:", error);
       showErrorToast("بارگذاری بیماران موفق نبود");
     }
-  };
+  }, []);
 
-  const fetchDrugs = async () => {
+  const fetchDrugs = useCallback(async () => {
     try {
       const res = await axiosInstance.get("/core/stocks/");
       setAllDrugs(res.data || []);
-    } catch {
+    } catch (error) {
+      console.error("Error fetching drugs:", error);
       showErrorToast("بارگذاری داروها موفق نبود");
     }
-  };
+  }, []);
 
-  const fetchPrescriptions = async (month) => {
+  const fetchCategories = useCallback(async () => {
+    try {
+      // FIXED: Changed from "/core/categories/" to "/core/category-types/"
+      const res = await axiosInstance.get("/core/category-types/");
+      setCategories(res.data || []);
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+    }
+  }, []);
+
+  const fetchPrescriptions = useCallback(async (month) => {
     setLoading(true);
     try {
       const res = await axiosInstance.get("/core/pharmaceuticals/", {
         params: { jalali_month: month },
       });
       setPrescriptions(res.data || []);
-    } catch {
+    } catch (error) {
+      console.error("Error fetching prescriptions:", error);
       showErrorToast("بارگذاری نسخه‌ها موفق نبود");
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchDoctors();
+    fetchPatients();
+    fetchDrugs();
+    fetchCategories();
+    fetchPrescriptions(selectedMonth);
+  }, [selectedMonth, fetchDoctors, fetchPatients, fetchDrugs, fetchCategories, fetchPrescriptions]);
 
   /* ===================== HELPERS ===================== */
   const getDoctorName = (id) => {
+    if (!id) return "—";
     const d = doctors.find((doc) => doc.id === parseInt(id));
     return d ? `${d.first_name} ${d.last_name}` : "—";
   };
@@ -100,6 +127,58 @@ const DailyCopyPrescription = () => {
       (sum, d) => sum + Number(d.amount) * Number(d.total_price),
       0,
     );
+
+  /* ===================== PATIENT HANDLERS ===================== */
+  const handleAddNewPatient = async () => {
+    if (!newPatient.name.trim()) {
+      showWarningToast("لطفاً نام بیمار را وارد کنید");
+      return;
+    }
+
+    setAddingPatient(true);
+    try {
+      const payload = {
+        name: newPatient.name,
+        age: newPatient.age ? parseInt(newPatient.age) : null,
+        patient_type: newPatient.patient_type || "",
+      };
+      
+      if (newPatient.category && newPatient.category !== "") {
+        payload.category = parseInt(newPatient.category);
+      }
+      
+      console.log("Sending patient payload:", payload);
+      
+      const response = await axiosInstance.post("/core/patients/", payload);
+      showSuccessToast("بیمار با موفقیت اضافه شد");
+      
+      await fetchPatients();
+      
+      setNewPrescription((prev) => ({
+        ...prev,
+        patient_name: response.data.id,
+      }));
+      setPatientSearch(newPatient.name);
+      setShowNewPatientModal(false);
+      setPatientDropdownVisible(false);
+      
+      setNewPatient({
+        name: "",
+        age: "",
+        patient_type: "",
+        category: "",
+      });
+    } catch (error) {
+      console.error("Error adding patient:", error);
+      console.error("Error response:", error.response?.data);
+      const errorMessage = error.response?.data?.category?.[0] || 
+                          error.response?.data?.message || 
+                          "افزودن بیمار موفق نبود";
+      showErrorToast(errorMessage);
+    } finally {
+      setAddingPatient(false);
+    }
+  };
 
   /* ===================== DRUG HANDLERS ===================== */
   const handleAddDrug = (drug) => {
@@ -154,9 +233,6 @@ const DailyCopyPrescription = () => {
     setSaving(true);
 
     const payload = {
-      doctor_name: newPrescription.doctor_name
-        ? parseInt(newPrescription.doctor_name)
-        : null,
       patient_name: parseInt(newPrescription.patient_name),
       copy: newPrescription.copy,
       price: calculateTotalPrice(),
@@ -165,6 +241,10 @@ const DailyCopyPrescription = () => {
         amount_used: d.amount,
       })),
     };
+
+    if (newPrescription.doctor_name && newPrescription.doctor_name !== "") {
+      payload.doctor_name = parseInt(newPrescription.doctor_name);
+    }
 
     try {
       if (editingId) {
@@ -177,7 +257,7 @@ const DailyCopyPrescription = () => {
       fetchPrescriptions(selectedMonth);
       closeModal();
     } catch (err) {
-      console.log(err.response?.data);
+      console.error("Save error:", err.response?.data);
       showErrorToast("ثبت نسخه موفق نبود");
     } finally {
       setSaving(false);
@@ -187,7 +267,7 @@ const DailyCopyPrescription = () => {
   const handleEdit = (prescription) => {
     setEditingId(prescription.id);
     setNewPrescription({
-      doctor_name: prescription.doctor_name,
+      doctor_name: prescription.doctor_name || "",
       patient_name: prescription.patient_name,
       selectedDrugs: prescription.drugs.map((d) => ({
         drugId: d.drug?.id,
@@ -209,7 +289,8 @@ const DailyCopyPrescription = () => {
       await axiosInstance.delete(`/core/pharmaceuticals/${id}/`);
       setPrescriptions((prev) => prev.filter((p) => p.id !== id));
       showSuccessToast("نسخه با موفقیت حذف شد");
-    } catch {
+    } catch (error) {
+      console.error("Delete error:", error);
       showErrorToast("حذف نسخه موفق نبود");
     }
   };
@@ -236,6 +317,7 @@ const DailyCopyPrescription = () => {
     });
     setPatientSearch("");
     setDrugSearch("");
+    setPatientDropdownVisible(false);
   };
 
   /* ===================== RENDER ===================== */
@@ -351,7 +433,7 @@ const DailyCopyPrescription = () => {
                 }))
               }
             >
-              <option value="">انتخاب پزشک</option>
+              <option value="">انتخاب داکتر (اختیاری)</option>
               {doctors.map((d) => (
                 <option key={d.id} value={d.id}>
                   {d.first_name} {d.last_name} — {d.role_display}
@@ -374,22 +456,45 @@ const DailyCopyPrescription = () => {
             {/* Patient Dropdown */}
             {patientDropdownVisible && patientSearch.trim() !== "" && (
               <div className="border max-h-40 overflow-y-auto mb-2">
-                {filteredPatients.map((p) => (
+                {filteredPatients.length > 0 ? (
+                  <>
+                    {filteredPatients.map((p) => (
+                      <div
+                        key={p.id}
+                        className="p-2 hover:bg-gray-100 cursor-pointer"
+                        onClick={() => {
+                          setNewPrescription((prev) => ({
+                            ...prev,
+                            patient_name: p.id,
+                          }));
+                          setPatientSearch(p.name);
+                          setPatientDropdownVisible(false);
+                        }}
+                      >
+                        {p.name}
+                      </div>
+                    ))}
+                    <div
+                      className="p-2 hover:bg-green-50 cursor-pointer border-t text-green-600"
+                      onClick={() => {
+                        setPatientDropdownVisible(false);
+                        setShowNewPatientModal(true);
+                      }}
+                    >
+                      + افزودن بیمار جدید
+                    </div>
+                  </>
+                ) : (
                   <div
-                    key={p.id}
-                    className="p-2 hover:bg-gray-100 cursor-pointer"
+                    className="p-2 hover:bg-green-50 cursor-pointer text-green-600"
                     onClick={() => {
-                      setNewPrescription((prev) => ({
-                        ...prev,
-                        patient_name: p.id,
-                      }));
-                      setPatientSearch(p.name);
                       setPatientDropdownVisible(false);
+                      setShowNewPatientModal(true);
                     }}
                   >
-                    {p.name}
+                    + بیمار جدید یافت نشد، کلیک برای افزودن
                   </div>
-                ))}
+                )}
               </div>
             )}
 
@@ -467,6 +572,71 @@ const DailyCopyPrescription = () => {
                 className="px-4 py-1 bg-green text-white rounded"
               >
                 {editingId ? "بروزرسانی" : "ثبت"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* New Patient Modal */}
+      {showNewPatientModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex justify-center items-center z-50">
+          <div className="bg-white p-6 rounded w-96">
+            <h3 className="font-bold mb-4">افزودن بیمار جدید</h3>
+            
+            <input
+              type="text"
+              placeholder="نام بیمار *"
+              className="w-full border p-2 rounded mb-2"
+              value={newPatient.name}
+              onChange={(e) => setNewPatient({ ...newPatient, name: e.target.value })}
+            />
+            
+            <input
+              type="number"
+              placeholder="سن"
+              className="w-full border p-2 rounded mb-2"
+              value={newPatient.age}
+              onChange={(e) => setNewPatient({ ...newPatient, age: e.target.value })}
+            />
+            
+            <input
+              type="text"
+              placeholder="نوع بیمار"
+              className="w-full border p-2 rounded mb-2"
+              value={newPatient.patient_type}
+              onChange={(e) => setNewPatient({ ...newPatient, patient_type: e.target.value })}
+            />
+            
+            <select
+              className="w-full border p-2 rounded mb-2"
+              value={newPatient.category}
+              onChange={(e) => setNewPatient({ ...newPatient, category: e.target.value })}
+            >
+              <option value="">دسته بندی (اختیاری)</option>
+              {categories.map((cat) => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.name}
+                </option>
+              ))}
+            </select>
+            
+            <div className="flex justify-end gap-2 mt-4">
+              <button
+                onClick={() => {
+                  setShowNewPatientModal(false);
+                  setPatientDropdownVisible(true);
+                }}
+                className="px-4 py-1 bg-gray-300 rounded"
+              >
+                انصراف
+              </button>
+              <button
+                onClick={handleAddNewPatient}
+                disabled={addingPatient}
+                className="px-4 py-1 bg-green text-white rounded"
+              >
+                {addingPatient ? "در حال افزودن..." : "افزودن بیمار"}
               </button>
             </div>
           </div>
