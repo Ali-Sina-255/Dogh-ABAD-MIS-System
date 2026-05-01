@@ -586,3 +586,5 @@ class UserFreeStatusViewSet(viewsets.ModelViewSet):
     serializer_class = UserFreeStatus
     permission_classes = [AllowAny]
 
+
+

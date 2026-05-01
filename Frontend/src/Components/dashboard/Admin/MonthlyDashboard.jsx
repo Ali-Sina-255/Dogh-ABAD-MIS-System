@@ -18,13 +18,12 @@ import MonthlyRevenueChart from "../reports/MonthlyRevenueChart";
 import FinanceSummaryChart from "../reports/FinanceSummaryChart";
 
 import {
-  fetchHospitalDashboardSummary,  // Changed from fetchDashboardSummary
+  fetchHospitalDashboardSummary,
   fetchRecentPatients,
   fetchRecentLabTests,
   fetchRecentPharmaceuticals,
-  fetchHospitalMonthlyRevenue,    // Changed from fetchMonthlyRevenue
+  fetchHospitalMonthlyRevenue,
 } from "../../../../services/api";
-
 
 // ---------------- Main Dashboard ----------------
 const HospitalDashboardContent = ({ setActiveComponent }) => {
@@ -32,19 +31,19 @@ const HospitalDashboardContent = ({ setActiveComponent }) => {
 
   // Dashboard summary - auto refetch every 10 seconds
   const {
-  data: summary,
-  isLoading: summaryLoading,
-  isError: summaryError,
-  error: summaryErrorObj,
-  isFetching: summaryFetching,
-} = useQuery({
-  queryKey: ["hospitalDashboardSummary"],
-  queryFn: fetchHospitalDashboardSummary,  // Updated function name
-  staleTime: 5 * 60 * 1000,
-  refetchOnMount: "always",
-  refetchOnWindowFocus: true,
-  refetchInterval: 10000,
-});
+    data: summary,
+    isLoading: summaryLoading,
+    isError: summaryError,
+    error: summaryErrorObj,
+    isFetching: summaryFetching,
+  } = useQuery({
+    queryKey: ["hospitalDashboardSummary"],
+    queryFn: fetchHospitalDashboardSummary,
+    staleTime: 5 * 60 * 1000,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
+    refetchInterval: 10000,
+  });
 
   // Recent patients - auto refetch every 10 seconds
   const {
@@ -207,22 +206,25 @@ const HospitalDashboardContent = ({ setActiveComponent }) => {
         <FinanceSummaryChart />
       </div>
 
-      {/* Recent Patients Table */}
+      {/* Recent Patients Table - Showing only 5 items */}
       <RecentPatientsTable
-        data={recentPatients}
+        data={recentPatients.slice(0, 10)}  // Only show first 5
+        allData={recentPatients}  // Pass full data for "View All"
         loading={patientsLoading}
         setActiveComponent={setActiveComponent}
       />
 
-      {/* Recent Lab Tests & Pharmaceuticals */}
+      {/* Recent Lab Tests & Pharmaceuticals - Each showing only 5 items */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
         <RecentLabTestsTable
-          data={recentLabTests}
+          data={recentLabTests.slice(0, 10)}  // Only show first 5
+          allData={recentLabTests}  // Pass full data for "View All"
           loading={labTestsLoading}
           setActiveComponent={setActiveComponent}
         />
         <RecentPharmaceuticalsTable
-          data={recentPharmaceuticals}
+          data={recentPharmaceuticals.slice(0, 10)}  // Only show first 5
+          allData={recentPharmaceuticals}  // Pass full data for "View All"
           loading={pharmaceuticalsLoading}
           setActiveComponent={setActiveComponent}
         />
@@ -247,149 +249,181 @@ const StatCard = ({ title, value, icon, loading, bg }) => (
 );
 
 // ---------------- Recent Patients Table ----------------
-const RecentPatientsTable = ({ data, loading, setActiveComponent }) => (
-  <div className="bg-white p-5 rounded shadow">
-    <div className="flex justify-between mb-4">
-      <h2 className="text-lg font-semibold">Recent Patients</h2>
-      <button
-        onClick={() => setActiveComponent("patients")}
-        className="text-blue-600 text-sm"
-      >
-        View All
-      </button>
-    </div>
+const RecentPatientsTable = ({ data, loading, setActiveComponent, allData }) => {
+  const totalCount = allData?.length || 0;
+  
+  return (
+    <div className="bg-white p-5 rounded shadow">
+      <div className="flex justify-between items-center mb-4">
+        <div>
+          <h2 className="text-lg font-semibold">Recent Patients</h2>
+          <p className="text-sm text-gray-500">Showing {data.length} of {totalCount} patients</p>
+        </div>
+        <button
+          onClick={() => setActiveComponent("patients")}
+          className="text-blue-600 text-sm hover:text-blue-800"
+        >
+          View All ({totalCount})
+        </button>
+      </div>
 
-    {loading ? (
-      <Skeleton count={5} height={50} />
-    ) : (
-      <table className="w-full text-sm">
-        <thead className="bg-gray-100 text-gray-600">
-          <tr>
-            <th className="p-2">Patient Name</th>
-            <th className="p-2">Age</th>
-            <th className="p-2">Category</th>
-            <th className="p-2">Patient Type</th>
-            <th className="p-2">Fee</th>
-            <th className="p-2">Date</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.map((patient) => (
-            <tr key={patient.id} className="border-b hover:bg-gray-50">
-              <td className="p-2 font-medium">{patient.name}</td>
-              <td className="p-2">{patient.age || "-"}</td>
-              <td className="p-2">{patient.category?.name || "-"}</td>
-              <td className="p-2">{patient.patient_type}</td>
-              <td className="p-2 text-green-600 font-semibold">
-                AFN {patient.fee?.toLocaleString() || 0}
-              </td>
-              <td className="p-2 text-gray-500">{patient.created_at}</td>
+      {loading ? (
+        <Skeleton count={5} height={50} />
+      ) : data.length === 0 ? (
+        <div className="text-center text-gray-500 py-8">No patients found</div>
+      ) : (
+        <table className="w-full text-sm">
+          <thead className="bg-gray-100 text-gray-600">
+            <tr>
+              <th className="p-2 text-right">Patient Name</th>
+              <th className="p-2 text-right">Age</th>
+              <th className="p-2 text-right">Category</th>
+              <th className="p-2 text-right">Patient Type</th>
+              <th className="p-2 text-right">Fee</th>
+              <th className="p-2 text-right">Date</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    )}
-  </div>
-);
+          </thead>
+          <tbody>
+            {data.map((patient) => (
+              <tr key={patient.id} className="border-b hover:bg-gray-50">
+                <td className="p-2 font-medium">{patient.name}</td>
+                <td className="p-2">{patient.age || "-"}</td>
+                <td className="p-2">{patient.category?.name || "-"}</td>
+                <td className="p-2">{patient.patient_type}</td>
+                <td className="p-2 text-green-600 font-semibold">
+                  AFN {patient.fee?.toLocaleString() || 0}
+                </td>
+                <td className="p-2 text-gray-500">{patient.created_at}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+};
 
 // ---------------- Recent Lab Tests Table ----------------
-const RecentLabTestsTable = ({ data, loading, setActiveComponent }) => (
-  <div className="bg-white p-5 rounded shadow">
-    <div className="flex justify-between mb-4">
-      <h2 className="text-lg font-semibold">Recent Lab Tests</h2>
-      <button
-        onClick={() => setActiveComponent("lab-tests")}
-        className="text-blue-600 text-sm"
-      >
-        View All
-      </button>
-    </div>
+const RecentLabTestsTable = ({ data, loading, setActiveComponent, allData }) => {
+  const totalCount = allData?.length || 0;
+  
+  return (
+    <div className="bg-white p-5 rounded shadow">
+      <div className="flex justify-between items-center mb-4">
+        <div>
+          <h2 className="text-lg font-semibold">Recent Lab Tests</h2>
+          <p className="text-sm text-gray-500">Showing {data.length} of {totalCount} tests</p>
+        </div>
+        <button
+          onClick={() => setActiveComponent("lab-tests")}
+          className="text-blue-600 text-sm hover:text-blue-800"
+        >
+          View All ({totalCount})
+        </button>
+      </div>
 
-    {loading ? (
-      <Skeleton count={5} height={50} />
-    ) : (
-      <table className="w-full text-sm">
-        <thead className="bg-gray-100 text-gray-600">
-          <tr>
-            <th className="p-2">Patient</th>
-            <th className="p-2">Test Type</th>
-            <th className="p-2">Price</th>
-            <th className="p-2">Referred By</th>
-            <th className="p-2">Date</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.map((test) => (
-            <tr key={test.id} className="border-b hover:bg-gray-50">
-              <td className="p-2 font-medium">{test.patient?.name || "-"}</td>
-              <td className="p-2">{test.test_type?.name || "-"}</td>
-              <td className="p-2 text-green-600 font-semibold">
-                AFN {test.price?.toLocaleString()}
-              </td>
-              <td className="p-2">{test.refer_to || "-"}</td>
-              <td className="p-2 text-gray-500">{test.date}</td>
+      {loading ? (
+        <Skeleton count={5} height={50} />
+      ) : data.length === 0 ? (
+        <div className="text-center text-gray-500 py-8">No lab tests found</div>
+      ) : (
+        <table className="w-full text-sm">
+          <thead className="bg-gray-100 text-gray-600">
+            <tr>
+              <th className="p-2 text-right">Patient</th>
+              <th className="p-2 text-right">Test Type</th>
+              <th className="p-2 text-right">Price</th>
+              <th className="p-2 text-right">Referred By</th>
+              <th className="p-2 text-right">Date</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    )}
-  </div>
-);
+          </thead>
+          <tbody>
+            {data.map((test) => (
+              <tr key={test.id} className="border-b hover:bg-gray-50">
+                <td className="p-2 font-medium">{test.patient?.name || "-"}</td>
+                <td className="p-2">{test.test_type?.name || "-"}</td>
+                <td className="p-2 text-green-600 font-semibold">
+                  AFN {test.price?.toLocaleString()}
+                </td>
+                <td className="p-2">{test.refer_to || "-"}</td>
+                <td className="p-2 text-gray-500">{test.date}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+};
 
 // ---------------- Recent Pharmaceuticals Table ----------------
-const RecentPharmaceuticalsTable = ({ data, loading, setActiveComponent }) => (
-  <div className="bg-white p-5 rounded shadow">
-    <div className="flex justify-between mb-4">
-      <h2 className="text-lg font-semibold">Recent Prescriptions</h2>
-      <button
-        onClick={() => setActiveComponent("pharmaceuticals")}
-        className="text-blue-600 text-sm"
-      >
-        View All
-      </button>
-    </div>
+const RecentPharmaceuticalsTable = ({ data, loading, setActiveComponent, allData }) => {
+  const totalCount = allData?.length || 0;
+  
+  return (
+    <div className="bg-white p-5 rounded shadow">
+      <div className="flex justify-between items-center mb-4">
+        <div>
+          <h2 className="text-lg font-semibold">Recent Prescriptions</h2>
+          <p className="text-sm text-gray-500">Showing {data.length} of {totalCount} prescriptions</p>
+        </div>
+        <button
+          onClick={() => setActiveComponent("pharmaceuticals")}
+          className="text-blue-600 text-sm hover:text-blue-800"
+        >
+          View All ({totalCount})
+        </button>
+      </div>
 
-    {loading ? (
-      <Skeleton count={5} height={80} />
-    ) : (
-      <table className="w-full text-sm">
-        <thead className="bg-gray-100 text-gray-600">
-          <tr>
-            <th className="p-2">Patient</th>
-            <th className="p-2">Doctor</th>
-            <th className="p-2">Medications</th>
-            <th className="p-2">Total Price</th>
-            <th className="p-2">Date</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.map((prescription) => (
-            <tr key={prescription.id} className="border-b hover:bg-gray-50">
-              <td className="p-2 font-medium">
-                {prescription.patient_name?.name || "-"}
-              </td>
-              <td className="p-2">
-                {prescription.doctor_name?.name || "-"}
-              </td>
-              <td className="p-2">
-                <div className="space-y-1">
-                  {prescription.drugs?.map((drug, idx) => (
-                    <div key={idx} className="text-xs">
-                      {drug.name} x {drug.amount_used}
-                    </div>
-                  )) || "-"}
-                </div>
-              </td>
-              <td className="p-2 text-green-600 font-semibold">
-                AFN {prescription.price?.toLocaleString() || 0}
-              </td>
-              <td className="p-2 text-gray-500">{prescription.created_at}</td>
+      {loading ? (
+        <Skeleton count={5} height={80} />
+      ) : data.length === 0 ? (
+        <div className="text-center text-gray-500 py-8">No prescriptions found</div>
+      ) : (
+        <table className="w-full text-sm">
+          <thead className="bg-gray-100 text-gray-600">
+            <tr>
+              <th className="p-2 text-right">Patient</th>
+              <th className="p-2 text-right">Doctor</th>
+              <th className="p-2 text-right">Medications</th>
+              <th className="p-2 text-right">Total Price</th>
+              <th className="p-2 text-right">Date</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    )}
-  </div>
-);
+          </thead>
+          <tbody>
+            {data.map((prescription) => (
+              <tr key={prescription.id} className="border-b hover:bg-gray-50">
+                <td className="p-2 font-medium">
+                  {prescription.patient_name?.name || "-"}
+                </td>
+                <td className="p-2">
+                  {prescription.doctor_name?.name || "-"}
+                </td>
+                <td className="p-2">
+                  <div className="space-y-1">
+                    {prescription.drugs?.slice(0, 2).map((drug, idx) => (
+                      <div key={idx} className="text-xs">
+                        {drug.name} x {drug.amount_used}
+                      </div>
+                    ))}
+                    {prescription.drugs?.length > 2 && (
+                      <div className="text-xs text-gray-500">
+                        +{prescription.drugs.length - 2} more
+                      </div>
+                    )}
+                  </div>
+                </td>
+                <td className="p-2 text-green-600 font-semibold">
+                  AFN {prescription.price?.toLocaleString() || 0}
+                </td>
+                <td className="p-2 text-gray-500">{prescription.created_at}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+};
 
 export default HospitalDashboardContent;

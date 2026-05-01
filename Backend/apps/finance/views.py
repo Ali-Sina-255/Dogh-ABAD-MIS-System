@@ -181,3 +181,5 @@ class FullReportAPIView(APIView):
                 "net_profit": net_profit,  # <-- This is your benefit
             }
         )
+
+

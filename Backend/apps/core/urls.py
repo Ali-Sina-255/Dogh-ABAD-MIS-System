@@ -92,4 +92,5 @@ urlpatterns = [
         HospitalFinancialReportView.as_view(),
         name="hospital-financial-report",
     ),
+    path("dashboard/monthly-revenue/", MonthlyRevenueView.as_view()),
 ]

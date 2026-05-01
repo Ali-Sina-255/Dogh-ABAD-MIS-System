@@ -569,3 +569,53 @@ class HospitalFinancialReportView(APIView):
                 "monthly_trend": monthly_trend,
             }
         )
+
+
+class MonthlyRevenueView(APIView):
+    def get(self, request):
+        revenues = []
+        
+        # Get lab test revenue by month
+        lab_revenue_by_month = (
+            LabTest.objects.values("jalali_month")
+            .annotate(total=Sum("price"))
+            .order_by("-jalali_month")[:6]
+        )
+        
+        revenue_dict = {}
+        
+        for lab in lab_revenue_by_month:
+            month = lab["jalali_month"]
+            if month:
+                revenue_dict[month] = {
+                    "month": str(month),
+                    "lab_revenue": float(lab["total"] or 0),
+                    "pharmacy_revenue": 0,
+                    "total": float(lab["total"] or 0),
+                }
+        
+        # Get pharmacy revenue by month
+        pharmacy_revenue_by_month = (
+            Pharmaceutical.objects.values("jalali_month")
+            .annotate(total=Sum("price"))
+            .order_by("-jalali_month")[:6]
+        )
+        
+        for pharm in pharmacy_revenue_by_month:
+            month = pharm["jalali_month"]
+            if month:
+                if month in revenue_dict:
+                    revenue_dict[month]["pharmacy_revenue"] = float(pharm["total"] or 0)
+                    revenue_dict[month]["total"] += float(pharm["total"] or 0)
+                else:
+                    revenue_dict[month] = {
+                        "month": str(month),
+                        "lab_revenue": 0,
+                        "pharmacy_revenue": float(pharm["total"] or 0),
+                        "total": float(pharm["total"] or 0),
+                    }
+        
+        # Convert to list and sort by month (descending)
+        revenues = sorted(revenue_dict.values(), key=lambda x: x["month"], reverse=True)
+        
+        return Response({"revenues": revenues})

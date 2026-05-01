@@ -37,7 +37,7 @@ export const fetchRecentEnrollments = async () => {
 
 export const fetchMonthlyRevenue = async () => {
   try {
-    const res = await axiosInstance.get("/courses/dashboard/monthly-revenue/");
+    const res = await axiosInstance.get("/core/dashboard/monthly-revenue/");
     return res.data;
   } catch (err) {
     console.error("Failed to fetch monthly revenue", err);
